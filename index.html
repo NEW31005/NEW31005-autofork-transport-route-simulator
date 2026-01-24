@@ -1590,10 +1590,6 @@
           <p class="hint" style="margin-top:8px;">
             キャンバスをクリックで配置。スタンプをクリックで選択します（他の操作モードでは当たり判定に入りません）。
           </p>
-
-<div class="results-card stamp-edit-card" id="stampEditCard" style="display:none;">
-          <div class="results-title">スタンプ編集</div>
-
         </div>
 
         </div>
@@ -1677,7 +1673,8 @@
         <div class="divider"></div>
 
         
-        
+        <div class="results-card stamp-edit-card" id="stampEditCard" style="display:none;">
+          <div class="results-title">スタンプ編集</div>
           <div class="stamp-edit-head">
             <div class="stamp-edit-type" id="stampEditTypeLabel">-</div>
             <button class="btn secondary btn-mini" id="stampDeleteBtnSmall" type="button">🗑 削除</button>
@@ -2060,10 +2057,7 @@
     const stampDeleteBtnSmall = document.getElementById('stampDeleteBtnSmall');
     const stampRotateLeftBtn = document.getElementById('stampRotateLeftBtn');
     const stampRotateRightBtn = document.getElementById('stampRotateRightBtn');
-        const stampRotRow = document.getElementById('stampRotRow');
-    const stampRotRange = document.getElementById('stampRotRange');
-    const stampRotNumber = document.getElementById('stampRotNumber');
-const stampFlipHBtn = document.getElementById('stampFlipHBtn');
+    const stampFlipHBtn = document.getElementById('stampFlipHBtn');
     const stampFlipVBtn = document.getElementById('stampFlipVBtn');
     const stampScaleRow = document.getElementById('stampScaleRow');
     const stampScaleRange = document.getElementById('stampScaleRange');
@@ -3903,22 +3897,8 @@ function getWorldPoint(e) {
 
       // Rotate
       const canRotate = !!def.rotatable;
-      const isFreeRotate = (s.type === 'autofork'); // AutoForkのみ自由回転
-      // 90°ボタンは「自由回転じゃないスタンプ」用
-      stampRotateLeftBtn.style.display = (!isFreeRotate) ? '' : 'none';
-      stampRotateRightBtn.style.display = (!isFreeRotate) ? '' : 'none';
-      stampRotateLeftBtn.disabled = !canRotate || isFreeRotate;
-      stampRotateRightBtn.disabled = !canRotate || isFreeRotate;
-
-      // Free rotate UI (AutoFork only)
-      if (stampRotRow && stampRotRange && stampRotNumber) {
-        stampRotRow.style.display = isFreeRotate ? '' : 'none';
-        if (isFreeRotate) {
-          const r = normalizeRot(s.rot || 0);
-          stampRotRange.value = String(Math.round(r));
-          stampRotNumber.value = String(Math.round(r));
-        }
-      }
+      stampRotateLeftBtn.disabled = !canRotate;
+      stampRotateRightBtn.disabled = !canRotate;
 
       // Flip (AutoFork only)
       const canFlip = (s.type === 'autofork');
@@ -3972,29 +3952,6 @@ function getWorldPoint(e) {
     stampRotateRightBtn.addEventListener('click', () => {
       applyStampChange((s) => { s.rot = normalizeRot((s.rot || 0) + 90); });
     });
-
-    function syncStampRotationFrom(valueStr) {
-      const s = getSelectedStamp();
-      if (!s) return;
-      if (s.type !== 'autofork') return;
-      let v = Number(valueStr);
-      if (!Number.isFinite(v)) return;
-      v = Math.max(0, Math.min(359, v));
-      applyStampChange((st) => { st.rot = v; });
-      if (stampRotRange) stampRotRange.value = String(Math.round(v));
-      if (stampRotNumber) stampRotNumber.value = String(Math.round(v));
-    }
-
-    if (stampRotRange) {
-      stampRotRange.addEventListener('input', (e) => {
-        syncStampRotationFrom(e.target.value);
-      });
-    }
-    if (stampRotNumber) {
-      stampRotNumber.addEventListener('change', (e) => {
-        syncStampRotationFrom(e.target.value);
-      });
-    }
 
     stampFlipHBtn.addEventListener('click', () => {
       applyStampChange((s) => { s.flipX = !s.flipX; });
@@ -4610,9 +4567,6 @@ measureBtn?.addEventListener('click', () => {
     }
 
     // Report
-    // ルート画像生成（レポート用）
-    // NOTE: ここで例外が起きるとレポート全体が真っ白になりやすいので、
-    //       呼び出し側で部分的にフォールバックできるように安全ラッパーも用意します。
     function generateRouteImage(routeIndex) {
       if (!state.img) return '';
       const tempCanvas = document.createElement('canvas');
@@ -4839,16 +4793,6 @@ measureBtn?.addEventListener('click', () => {
 return tempCanvas.toDataURL('image/png');
     }
 
-    // 失敗しても空文字を返してレポート生成を続行できるラッパー
-    function safeGenerateRouteImage(routeIndex) {
-      try {
-        return generateRouteImage(routeIndex);
-      } catch (e) {
-        console.error('generateRouteImage failed:', e);
-        return '';
-      }
-    }
-
     document.getElementById('reportBtn').addEventListener('click', () => {
       document.getElementById('reportModal').classList.add('active');
       try {
@@ -4917,50 +4861,33 @@ return tempCanvas.toDataURL('image/png');
       let totalTime = 0;
 
       const routeSections = (state.routes || []).map((r, i) => {
-        try {
-          const res = calculateRouteTime(r);
-          totalDist += (res.distance || 0);
-          totalTime += (res.totalTime || 0);
+        const res = calculateRouteTime(r);
+        totalDist += (res.distance || 0);
+        totalTime += (res.totalTime || 0);
 
-          const imgData = safeGenerateRouteImage(i); // ★ 失敗してもレポート継続
-          const homeLabel = r.homeId || ((state.homePositions && state.homePositions[0]) ? state.homePositions[0].id : '');
+        const imgData = generateRouteImage(i);
+        const homeLabel = r.homeId || (state.homePositions[0] ? state.homePositions[0].id : '');
 
-          const imgHtml = imgData
-            ? `<div class="report-canvas-wrap"><img class="report-canvas" src="${imgData}" alt="route_${i+1}" /></div>`
-            : `<div class="report-canvas-wrap" style="display:flex;align-items:center;justify-content:center;color:var(--gray-600);font-size:12px;">
-                 ルート画像の生成に失敗しました（図面/縮尺/ブラウザ制限の可能性）
-               </div>`;
+        return `
+          <div class="report-page ${pageClass}" data-route-index="${i}">
+            <h2>ルート${i+1}: ${escapeHtml(r.name || '')}</h2>
+            <div class="report-sub">接続初期位置: <b>${escapeHtml(homeLabel)}</b></div>
 
-          return `
-            <div class="report-page ${pageClass}" data-route-index="${i}">
-              <h2>ルート${i+1}: ${escapeHtml(r.name || '')}</h2>
-              <div class="report-sub">接続初期位置: <b>${escapeHtml(homeLabel)}</b></div>
-
-              ${imgHtml}
-
-              <table class="report-table">
-                <tr><th>接地点(荷積み)</th><td>${res.totalLoadingCount || 0} 箇所</td></tr>
-                <tr><th>接地点(荷下ろし)</th><td>${res.totalUnloadingCount || 0} 箇所</td></tr>
-                <tr><th>ルート距離</th><td>${formatNumber(res.distance || 0)} m</td></tr>
-                <tr><th>積載距離</th><td>${formatNumber(res.loadedDist || 0)} m</td></tr>
-                <tr><th>空荷距離</th><td>${formatNumber(res.emptyDist || 0)} m</td></tr>
-                <tr><th>旋回回数</th><td>${res.corners || 0} 回</td></tr>
-                <tr><th>推定搬送時間</th><td>${formatTime(res.totalTime || 0)}</td></tr>
-              </table>
+            <div class="report-canvas-wrap">
+              <img class="report-canvas" src="${imgData}" alt="route_${i+1}" />
             </div>
-          `;
-        } catch (e) {
-          console.error('generateReport route section failed:', i, e);
-          return `
-            <div class="report-page ${pageClass}" data-route-index="${i}">
-              <h2>ルート${i+1}</h2>
-              <div class="error-box">
-                このルートのレポート生成でエラーが発生しました。<br>
-                <code>${escapeHtml(String(e && e.message ? e.message : e))}</code>
-              </div>
-            </div>
-          `;
-        }
+
+            <table class="report-table">
+              <tr><th>接地点(荷積み)</th><td>${res.totalLoadingCount || 0} 箇所</td></tr>
+              <tr><th>接地点(荷下ろし)</th><td>${res.totalUnloadingCount || 0} 箇所</td></tr>
+              <tr><th>ルート距離</th><td>${formatNumber(res.distance || 0)} m</td></tr>
+              <tr><th>積載距離</th><td>${formatNumber(res.loadedDist || 0)} m</td></tr>
+              <tr><th>空荷距離</th><td>${formatNumber(res.emptyDist || 0)} m</td></tr>
+              <tr><th>旋回回数</th><td>${res.corners || 0} 回</td></tr>
+              <tr><th>推定搬送時間</th><td>${formatTime(res.totalTime || 0)}</td></tr>
+            </table>
+          </div>
+        `;
       }).join('');
 
       const html = `
