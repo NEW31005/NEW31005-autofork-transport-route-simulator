@@ -1,0 +1,6 @@
+*.log
+*.bak
+*_backup.html
+*.lnk
+start_server.bat
+vendor/download_vendor.ps1
