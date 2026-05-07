@@ -1263,6 +1263,12 @@
     }
 
     .modal.large { max-width: 800px; }
+    .modal.tutorial-modal {
+      max-width: min(1080px, calc(100vw - 28px));
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
 
     .modal-header {
       padding: 14px 18px;
@@ -1295,6 +1301,110 @@
       gap: 8px;
       background: var(--gray-50);
       flex-wrap: wrap;
+    }
+
+    .tutorial-open-btn {
+      width: 100%;
+      margin-top: 10px;
+      justify-content: center;
+      box-shadow: 0 10px 24px rgba(17, 118, 212, 0.18);
+    }
+    .tutorial-body { padding: 0; background: #f8fafc; overflow: auto; }
+    .tutorial-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.8fr);
+      min-height: 520px;
+    }
+    .tutorial-video-wrap {
+      background: #0b1220;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 420px;
+      border-right: 1px solid #dbe7f3;
+    }
+    .tutorial-video {
+      width: 100%;
+      height: 100%;
+      max-height: 72vh;
+      object-fit: contain;
+      background: #000;
+    }
+    .tutorial-copy {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+    }
+    .tutorial-step {
+      color: #1176d4;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .tutorial-title {
+      color: #1f2937;
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .tutorial-text {
+      color: #374151;
+      font-size: 14px;
+      line-height: 1.8;
+      margin: 0;
+      padding-left: 18px;
+    }
+    .tutorial-text li { margin-bottom: 8px; }
+    .tutorial-note {
+      color: #9a3412;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 700;
+    }
+    .tutorial-progress {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: auto;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tutorial-dots {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .tutorial-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #cbd5e1;
+    }
+    .tutorial-dot.active { width: 22px; background: #1176d4; }
+    .tutorial-footer {
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tutorial-footer-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    @media (max-width: 860px) {
+      .modal.tutorial-modal { max-height: 94vh; }
+      .tutorial-layout { grid-template-columns: 1fr; min-height: 0; }
+      .tutorial-video-wrap { min-height: 240px; border-right: 0; border-bottom: 1px solid #dbe7f3; }
+      .tutorial-video { max-height: 42vh; }
+      .tutorial-copy { padding: 18px; }
+      .tutorial-title { font-size: 18px; }
     }
 
     /* Direction Control */
@@ -2118,6 +2228,7 @@ body.stamp-modal-open header{ pointer-events: none; }
             <li><b>積載走行</b>：ルート上で積載走行区間を設定</li>
             <li><b>パレット認識</b>：必要に応じて認識区間を新規描画で設定</li>
           </ol>
+          <button class="btn btn-primary tutorial-open-btn" id="tutorialGuideBtn" type="button">動画で使い方を見る</button>
 
         <div class="accordion" id="howtoAccordion">
           <button class="accordion-header" id="howtoToggle">
@@ -2892,6 +3003,40 @@ body.stamp-modal-open header{ pointer-events: none; }
         <button class="btn btn-primary" id="downloadPdfBtn">📑 PDF保存</button>
         <button class="btn" id="reportDrawioBtn">📐 draw.io保存</button>
         <button class="btn btn-success" id="inquiryBtn">📧 問い合わせ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Guide Modal -->
+  <div class="modal-overlay" id="tutorialGuideModal" aria-hidden="true">
+    <div class="modal tutorial-modal" role="dialog" aria-modal="true" aria-labelledby="tutorialGuideTitle">
+      <div class="modal-header">
+        <span class="modal-title">AutoFork搬送シミュレーター説明</span>
+        <button class="modal-close" id="tutorialGuideCloseBtn" type="button">×</button>
+      </div>
+      <div class="modal-body tutorial-body">
+        <div class="tutorial-layout">
+          <div class="tutorial-video-wrap">
+            <video id="tutorialGuideVideo" class="tutorial-video" controls autoplay muted loop playsinline preload="metadata"></video>
+          </div>
+          <div class="tutorial-copy">
+            <div class="tutorial-step" id="tutorialGuideStep">1 / 9</div>
+            <div class="tutorial-title" id="tutorialGuideTitle">図面を読み込む</div>
+            <ol class="tutorial-text" id="tutorialGuideText"></ol>
+            <div class="tutorial-note" id="tutorialGuideNote" style="display:none;"></div>
+            <div class="tutorial-progress">
+              <span id="tutorialGuideCounter">1 / 9</span>
+              <div class="tutorial-dots" id="tutorialGuideDots"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer tutorial-footer">
+        <button class="btn" id="tutorialGuideCloseFooterBtn" type="button">閉じる</button>
+        <div class="tutorial-footer-actions">
+          <button class="btn" id="tutorialGuidePrevBtn" type="button">戻る</button>
+          <button class="btn btn-primary" id="tutorialGuideNextBtn" type="button">次へ</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5708,6 +5853,186 @@ function draw() {
 
     document.getElementById('paramsToggle').addEventListener('click', () => {
       document.getElementById('paramsAccordion').classList.toggle('open');
+    });
+
+    const tutorialGuideSteps = [
+      {
+        title: '① 図面を読み込む',
+        video: 'StampAssets/movie/①.mp4',
+        items: [
+          'PDF、JPEG、PNGなどの図面・レイアウト画像を読み込み、キャンバスに表示します。',
+          '読み込んだ図面をもとに、縮尺、初期位置、ステーション、ルートを順番に設定していきます。'
+        ]
+      },
+      {
+        title: '② 縮尺を設定する',
+        video: 'StampAssets/movie/②.mp4',
+        items: [
+          '図面上で距離が分かる2点をクリックし、実際の距離を入力します。',
+          '縮尺を設定すると、以降の距離・時間計算、スタンプ配置、ルート作成ができるようになります。'
+        ]
+      },
+      {
+        title: '③ 初期位置を置く',
+        video: 'StampAssets/movie/③.mp4',
+        items: [
+          'AutoForkの出発・待機位置を図面上に配置します。',
+          '必要に応じて初期位置を複数登録し、ルートごとに使い分けできます。'
+        ]
+      },
+      {
+        title: '④ ステーションを置く',
+        video: 'StampAssets/movie/④.mp4',
+        items: [
+          '荷積みステーション、荷下ろしステーションを図面上に配置します。',
+          '各ステーションでは荷積み・荷下ろしの回数を設定でき、搬送時間の試算に反映されます。'
+        ]
+      },
+      {
+        title: '⑤ ルートを描く',
+        video: 'StampAssets/movie/⑤.mp4',
+        items: [
+          'ルートモードで図面上をクリックし、AutoForkの搬送ルートを作成します。',
+          '基本の流れは、初期位置からステーションを通り、初期位置へ戻る搬送ルートです。'
+        ]
+      },
+      {
+        title: '⑥ 走行デモを確認する',
+        video: 'StampAssets/movie/⑥.mp4',
+        items: [
+          '作成したルート上でAutoForkの走行イメージを再生できます。',
+          '再生、一時停止、再開ができ、走行デモの速度も変更できます。',
+          '動画保存では、速度を選んで1周分の走行イメージを保存できます。'
+        ],
+        note: '※走行デモにおけるAutoForkの走行方向はイメージであり、実際の走行方向とは異なります。'
+      },
+      {
+        title: '⑦ 積載走行区間を設定する',
+        video: 'StampAssets/movie/⑦.mp4',
+        items: [
+          '荷積み後から荷下ろしまでの区間を積載走行区間として設定します。',
+          '積載走行区間はオレンジ線で表示され、積載速度での搬送時間計算に反映されます。'
+        ]
+      },
+      {
+        title: '⑧ パレット一括認識区間を設定する',
+        video: 'StampAssets/movie/⑧.mp4',
+        items: [
+          'パレット一括認識を行う区間を2点クリックで指定します。',
+          '認識区間の距離はパレット認識時間として計算に反映され、レポート図面にも表示されます。'
+        ]
+      },
+      {
+        title: '⑨ レポートを保存する',
+        video: 'StampAssets/movie/⑨.mp4',
+        items: [
+          '作成したルート、距離、推定搬送時間、ステーション情報をレポートとして保存できます。',
+          'PDF保存ではA4縦・A4横を指定でき、用途に合わせた向きで出力できます。',
+          'レポートには図面、ルート線、積載区間、通行可能幅、パレット一括認識区間が反映されます。'
+        ]
+      }
+    ];
+    let tutorialGuideIndex = 0;
+
+    function renderTutorialGuideStep() {
+      const step = tutorialGuideSteps[tutorialGuideIndex];
+      if (!step) return;
+      const modal = document.getElementById('tutorialGuideModal');
+      const video = document.getElementById('tutorialGuideVideo');
+      const stepEl = document.getElementById('tutorialGuideStep');
+      const titleEl = document.getElementById('tutorialGuideTitle');
+      const textEl = document.getElementById('tutorialGuideText');
+      const noteEl = document.getElementById('tutorialGuideNote');
+      const counterEl = document.getElementById('tutorialGuideCounter');
+      const dotsEl = document.getElementById('tutorialGuideDots');
+      const prevBtn = document.getElementById('tutorialGuidePrevBtn');
+      const nextBtn = document.getElementById('tutorialGuideNextBtn');
+      const total = tutorialGuideSteps.length;
+
+      if (stepEl) stepEl.textContent = `${tutorialGuideIndex + 1} / ${total}`;
+      if (titleEl) titleEl.textContent = step.title;
+      if (textEl) {
+        textEl.innerHTML = step.items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+      }
+      if (noteEl) {
+        noteEl.style.display = step.note ? 'block' : 'none';
+        noteEl.textContent = step.note || '';
+      }
+      if (counterEl) counterEl.textContent = `${tutorialGuideIndex + 1} / ${total}`;
+      if (dotsEl) {
+        dotsEl.innerHTML = tutorialGuideSteps.map((_, i) => `<span class="tutorial-dot ${i === tutorialGuideIndex ? 'active' : ''}"></span>`).join('');
+      }
+      if (prevBtn) prevBtn.disabled = tutorialGuideIndex === 0;
+      if (nextBtn) nextBtn.textContent = tutorialGuideIndex === total - 1 ? '完了' : '次へ';
+
+      if (video) {
+        video.pause();
+        video.src = step.video;
+        video.loop = true;
+        video.muted = true;
+        video.load();
+        if (modal?.classList.contains('active')) {
+          video.play().catch(() => {});
+        }
+      }
+    }
+
+    function openTutorialGuide(index = 0) {
+      tutorialGuideIndex = Math.max(0, Math.min(tutorialGuideSteps.length - 1, index));
+      const modal = document.getElementById('tutorialGuideModal');
+      if (!modal) return;
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      renderTutorialGuideStep();
+      document.getElementById('tutorialGuideVideo')?.play().catch(() => {});
+    }
+
+    function closeTutorialGuide() {
+      const modal = document.getElementById('tutorialGuideModal');
+      const video = document.getElementById('tutorialGuideVideo');
+      if (video) video.pause();
+      if (modal) {
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function moveTutorialGuide(delta) {
+      const next = tutorialGuideIndex + delta;
+      if (next < 0) return;
+      if (next >= tutorialGuideSteps.length) {
+        closeTutorialGuide();
+        return;
+      }
+      tutorialGuideIndex = next;
+      renderTutorialGuideStep();
+      document.getElementById('tutorialGuideVideo')?.play().catch(() => {});
+    }
+
+    document.getElementById('tutorialGuideBtn')?.addEventListener('click', () => openTutorialGuide(0));
+    document.getElementById('tutorialGuideCloseBtn')?.addEventListener('click', closeTutorialGuide);
+    document.getElementById('tutorialGuideCloseFooterBtn')?.addEventListener('click', closeTutorialGuide);
+    document.getElementById('tutorialGuidePrevBtn')?.addEventListener('click', () => moveTutorialGuide(-1));
+    document.getElementById('tutorialGuideNextBtn')?.addEventListener('click', () => moveTutorialGuide(1));
+    document.getElementById('tutorialGuideModal')?.addEventListener('click', (e) => {
+      if (e.target?.id === 'tutorialGuideModal') closeTutorialGuide();
+    });
+    document.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('tutorialGuideModal');
+      if (!modal?.classList.contains('active')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTutorialGuide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveTutorialGuide(-1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        e.stopPropagation();
+        moveTutorialGuide(1);
+      }
     });
 
     async function loadFile(file) {
