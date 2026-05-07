@@ -5020,14 +5020,14 @@ function draw() {
     // Calculate route time - Updated logic
     function calculateRouteTime(route) {
       if (!route || route.points.length < 2 || !state.metersPerPixel) {
-        return { distance: 0, emptyDist: 0, loadedDist: 0, emptyTime: 0, loadedTime: 0, corners: 0, effectiveCorners: 0, turnTime: 0, turn180Count: 0, turn180Time: 0, totalLoadingCount: 0, totalUnloadingCount: 0, loadingTime: 0, unloadingTime: 0, recognizeTime: 0, taskTime: 0, totalTime: 0, turnPoints: [], turn180Points: [] };
+        return { distance: 0, routeDist: 0, emptyDist: 0, loadedDist: 0, recognizeDist: 0, emptyTime: 0, loadedTime: 0, corners: 0, effectiveCorners: 0, turnTime: 0, turn180Count: 0, turn180Time: 0, totalLoadingCount: 0, totalUnloadingCount: 0, loadingTime: 0, unloadingTime: 0, recognizeTime: 0, taskTime: 0, totalTime: 0, turnPoints: [], turn180Points: [] };
       }
 
-      let totalDist = 0;
+      let routeDist = 0;
       for (let i = 1; i < route.points.length; i++) {
         const dx = route.points[i].x - route.points[i - 1].x;
         const dy = route.points[i].y - route.points[i - 1].y;
-        totalDist += Math.hypot(dx, dy) * state.metersPerPixel;
+        routeDist += Math.hypot(dx, dy) * state.metersPerPixel;
       }
 
       let loadedDist = 0;
@@ -5037,16 +5037,19 @@ function draw() {
         });
       }
 
-      // Recognize time from independent paths
+      // Recognize distance/time from independent paths
+      let recognizeDist = 0;
       let recognizeTime = 0;
       if (route.recognizePaths) {
         route.recognizePaths.forEach(path => {
           const dist = calcPathDistance(path.points);
+          recognizeDist += dist;
           recognizeTime += dist / kmhToMs(SPEC.speedRecognize);
         });
       }
 
-      const emptyDist = Math.max(0, totalDist - loadedDist);
+      const totalDist = routeDist + recognizeDist;
+      const emptyDist = Math.max(0, routeDist - loadedDist);
 
       // Count 90° turns only
       const turnPoints = [];
@@ -5092,8 +5095,10 @@ function draw() {
 
       return { 
         distance: totalDist, 
+        routeDist,
         emptyDist,
         loadedDist,
+        recognizeDist,
         emptyTime, 
         loadedTime,
         corners,
@@ -5146,7 +5151,7 @@ function draw() {
       if (turn180El) turn180El.textContent = `${result.turn180Count || 0}回 × 13秒 = ${formatTimeSec(result.turn180Time || 0)}`;
       const tpEl = document.getElementById('turnPointsCount');
       if (tpEl) tpEl.textContent = `90° ${turns} / 180° ${result.turn180Count || 0}`;
-      document.getElementById('recognizeTime').textContent = formatTimeSec(result.recognizeTime);
+      document.getElementById('recognizeTime').textContent = `${formatTimeSec(result.recognizeTime)} / ${formatNumber(result.recognizeDist || 0)} m`;
       document.getElementById('taskTime').textContent = formatTimeSec(result.taskTime);
       document.getElementById('totalTime').textContent = formatTime(result.totalTime);
 
@@ -6111,6 +6116,9 @@ function getWorldPoint(e) {
         showToast('認識区間を追加');
       }
       state.recognizeDrawing = [];
+      updateRecognizeList();
+      updateUI();
+      requestRedraw();
     }
 
     let stationDrag = null;
@@ -6539,7 +6547,9 @@ function getWorldPoint(e) {
         // New recognize drawing - independent path
         state.recognizeDrawing.push({ x: wp.x, y: wp.y });
         if (state.recognizeDrawing.length === 1) {
-          showToast('認識開始点設定。続けてクリックまたはダブルクリックで終了', 'warning');
+          showToast('認識開始点設定。次のクリックで認識区間を確定します', 'warning');
+        } else {
+          finishRecognizeDrawing();
         }
       } else if (state.routeSubMode === 'turn180') {
         if (route.points.length < 2) {
@@ -8730,19 +8740,27 @@ measureBtn?.addEventListener('click', () => {
         }
       }
 
-      if (Array.isArray(route?.recognizePaths) && route.recognizePaths.length) {
+      function appendReportRecognizeOverlay() {
+        if (!Array.isArray(route?.recognizePaths) || !route.recognizePaths.length) return;
         const recognizeLW = mpp ? Math.max(4, 0.08 / mpp) : 5;
-        svg.push(`<g fill="none" stroke="#e83e8c" stroke-width="${reportSvgNum(recognizeLW)}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="14 8">`);
-        route.recognizePaths.forEach(path => {
-          const recPts = path?.points || [];
-          if (recPts.length >= 2) {
-            svg.push(`<path d="${reportSvgPathD(recPts, toSvgPoint)}" />`);
-          }
+        const validPaths = route.recognizePaths
+          .map(path => path?.points || [])
+          .filter(recPts => recPts.length >= 2);
+        if (!validPaths.length) return;
+
+        svg.push(`<g fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="${reportSvgNum(recognizeLW + 3)}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="14 8">`);
+        validPaths.forEach(recPts => {
+          svg.push(`<path d="${reportSvgPathD(recPts, toSvgPoint)}" />`);
         });
         svg.push(`</g>`);
-        route.recognizePaths.forEach((path, idx) => {
-          const recPts = path?.points || [];
-          if (recPts.length < 2) return;
+
+        svg.push(`<g fill="none" stroke="#e83e8c" stroke-width="${reportSvgNum(recognizeLW)}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="14 8">`);
+        validPaths.forEach(recPts => {
+          svg.push(`<path d="${reportSvgPathD(recPts, toSvgPoint)}" />`);
+        });
+        svg.push(`</g>`);
+
+        validPaths.forEach((recPts, idx) => {
           const mid = recPts[Math.floor(recPts.length / 2)];
           const p = toSvgPoint(mid.x, mid.y);
           const label = `認識${idx + 1}`;
@@ -8827,6 +8845,7 @@ measureBtn?.addEventListener('click', () => {
         });
       });
 
+      appendReportRecognizeOverlay();
       svg.push(`</svg>`);
       return svg.join('');
     }
@@ -8840,6 +8859,9 @@ measureBtn?.addEventListener('click', () => {
       const pageClass = getPdfOrientation() === 'p' ? 'portrait' : 'landscape';
       const mpp = state.metersPerPixel || 0;
       const routes = state.routes || [];
+      if (state.recognizeDrawing.length >= 2) {
+        finishRecognizeDrawing();
+      }
 
       if (!routes.length) {
         reportEl.innerHTML = `<div class="empty-state">
@@ -8912,7 +8934,7 @@ measureBtn?.addEventListener('click', () => {
                   <tr><th>ルート距離</th><td>${formatNumber(res.distance || 0)} m</td></tr>
                   <tr><th>積載距離</th><td>${formatNumber(res.loadedDist || 0)} m</td></tr>
                   <tr><th>空荷距離</th><td>${formatNumber(res.emptyDist || 0)} m</td></tr>
-                  <tr><th>パレット一括認識区画</th><td>${formatNumber(recognizeStats.distance || 0)} m</td></tr>
+                  <tr><th>パレット一括認識区画</th><td>${formatNumber(res.recognizeDist || recognizeStats.distance || 0)} m</td></tr>
                   <tr><th>90°旋回回数</th><td>${res.corners || 0} 回</td></tr>
                   <tr><th>180°旋回回数</th><td>${res.turn180Count || 0} 回</td></tr>
                   <tr><th>推定搬送時間</th><td>${formatTime(res.totalTime || 0)}</td></tr>
