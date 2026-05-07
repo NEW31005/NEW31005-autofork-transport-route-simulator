@@ -1324,6 +1324,13 @@
       align-items: start;
       min-height: 0;
     }
+    .tutorial-media-panel {
+      min-width: 0;
+      border-right: 1px solid #dbe7f3;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+    }
     .tutorial-video-wrap {
       background: #f8fafc;
       display: flex;
@@ -1332,7 +1339,6 @@
       width: 100%;
       min-width: 0;
       aspect-ratio: 2710 / 1490;
-      border-right: 1px solid #dbe7f3;
       overflow: hidden;
     }
     .tutorial-video {
@@ -1346,6 +1352,55 @@
       object-fit: fill;
       object-position: center;
       background: #f8fafc;
+    }
+    .tutorial-video-controls {
+      display: grid;
+      grid-template-columns: auto auto minmax(120px, 1fr) auto auto;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid #dbe7f3;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f7fd 100%);
+    }
+    .tutorial-video-control-btn {
+      min-width: 58px;
+      height: 32px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+    .tutorial-video-control-btn:hover {
+      border-color: #1176d4;
+      color: #0b65b7;
+      background: #f8fbff;
+    }
+    .tutorial-video-control-btn.primary {
+      min-width: 74px;
+      border-color: #1176d4;
+      background: #1176d4;
+      color: #ffffff;
+    }
+    .tutorial-video-control-btn.primary:hover {
+      background: #0b65b7;
+      color: #ffffff;
+    }
+    .tutorial-video-seek {
+      width: 100%;
+      accent-color: #1176d4;
+      cursor: pointer;
+    }
+    .tutorial-video-time {
+      min-width: 78px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+      text-align: right;
+      white-space: nowrap;
     }
     .tutorial-copy {
       padding: 24px;
@@ -1421,7 +1476,9 @@
     @media (max-width: 860px) {
       .modal.tutorial-modal { max-height: 94vh; }
       .tutorial-layout { grid-template-columns: 1fr; min-height: 0; }
-      .tutorial-video-wrap { border-right: 0; border-bottom: 1px solid #dbe7f3; }
+      .tutorial-media-panel { border-right: 0; border-bottom: 1px solid #dbe7f3; }
+      .tutorial-video-controls { grid-template-columns: auto auto 1fr; }
+      .tutorial-video-time { grid-column: 1 / -1; text-align: left; }
       .tutorial-copy { padding: 18px; }
       .tutorial-title { font-size: 18px; }
     }
@@ -3035,8 +3092,17 @@ body.stamp-modal-open header{ pointer-events: none; }
       </div>
       <div class="modal-body tutorial-body">
         <div class="tutorial-layout">
-          <div class="tutorial-video-wrap">
-            <video id="tutorialGuideVideo" class="tutorial-video" autoplay muted loop playsinline preload="metadata"></video>
+          <div class="tutorial-media-panel">
+            <div class="tutorial-video-wrap">
+              <video id="tutorialGuideVideo" class="tutorial-video" autoplay muted loop playsinline preload="metadata"></video>
+            </div>
+            <div class="tutorial-video-controls">
+              <button class="tutorial-video-control-btn" id="tutorialVideoBackBtn" type="button" title="5秒戻る">-5秒</button>
+              <button class="tutorial-video-control-btn primary" id="tutorialVideoPlayBtn" type="button">一時停止</button>
+              <input class="tutorial-video-seek" id="tutorialVideoSeek" type="range" min="0" max="0" value="0" step="0.1" aria-label="動画の再生位置">
+              <button class="tutorial-video-control-btn" id="tutorialVideoForwardBtn" type="button" title="5秒進む">+5秒</button>
+              <span class="tutorial-video-time" id="tutorialVideoTime">0:00 / 0:00</span>
+            </div>
           </div>
           <div class="tutorial-copy">
             <div class="tutorial-step" id="tutorialGuideStep">1 / 9</div>
@@ -5962,6 +6028,54 @@ function draw() {
     ];
     let tutorialGuideIndex = 0;
 
+    function formatTutorialVideoTime(seconds) {
+      if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${minutes}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function updateTutorialVideoControls() {
+      const video = document.getElementById('tutorialGuideVideo');
+      const seek = document.getElementById('tutorialVideoSeek');
+      const timeEl = document.getElementById('tutorialVideoTime');
+      const playBtn = document.getElementById('tutorialVideoPlayBtn');
+      if (!video) return;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      if (seek) {
+        seek.max = String(duration || 0);
+        seek.value = String(Math.min(current, duration || current));
+      }
+      if (timeEl) {
+        timeEl.textContent = `${formatTutorialVideoTime(current)} / ${formatTutorialVideoTime(duration)}`;
+      }
+      if (playBtn) {
+        playBtn.textContent = video.paused ? '再生' : '一時停止';
+      }
+    }
+
+    function seekTutorialVideo(deltaSeconds) {
+      const video = document.getElementById('tutorialGuideVideo');
+      if (!video) return;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      const target = video.currentTime + deltaSeconds;
+      const next = duration ? Math.max(0, Math.min(duration, target)) : Math.max(0, target);
+      video.currentTime = next;
+      updateTutorialVideoControls();
+    }
+
+    function toggleTutorialVideoPlayback() {
+      const video = document.getElementById('tutorialGuideVideo');
+      if (!video) return;
+      if (video.paused) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+      updateTutorialVideoControls();
+    }
+
     function renderTutorialGuideStep() {
       const step = tutorialGuideSteps[tutorialGuideIndex];
       if (!step) return;
@@ -6004,8 +6118,9 @@ function draw() {
         video.loop = true;
         video.muted = true;
         video.load();
+        updateTutorialVideoControls();
         if (modal?.classList.contains('active')) {
-          video.play().catch(() => {});
+          video.play().then(updateTutorialVideoControls).catch(() => {});
         }
       }
     }
@@ -6017,13 +6132,14 @@ function draw() {
       modal.classList.add('active');
       modal.setAttribute('aria-hidden', 'false');
       renderTutorialGuideStep();
-      document.getElementById('tutorialGuideVideo')?.play().catch(() => {});
+      document.getElementById('tutorialGuideVideo')?.play().then(updateTutorialVideoControls).catch(() => {});
     }
 
     function closeTutorialGuide() {
       const modal = document.getElementById('tutorialGuideModal');
       const video = document.getElementById('tutorialGuideVideo');
       if (video) video.pause();
+      updateTutorialVideoControls();
       if (modal) {
         modal.classList.remove('active');
         modal.setAttribute('aria-hidden', 'true');
@@ -6039,7 +6155,7 @@ function draw() {
       }
       tutorialGuideIndex = next;
       renderTutorialGuideStep();
-      document.getElementById('tutorialGuideVideo')?.play().catch(() => {});
+      document.getElementById('tutorialGuideVideo')?.play().then(updateTutorialVideoControls).catch(() => {});
     }
 
     document.getElementById('tutorialGuideBtn')?.addEventListener('click', () => openTutorialGuide(0));
@@ -6047,12 +6163,26 @@ function draw() {
     document.getElementById('tutorialGuideCloseFooterBtn')?.addEventListener('click', closeTutorialGuide);
     document.getElementById('tutorialGuidePrevBtn')?.addEventListener('click', () => moveTutorialGuide(-1));
     document.getElementById('tutorialGuideNextBtn')?.addEventListener('click', () => moveTutorialGuide(1));
+    document.getElementById('tutorialVideoPlayBtn')?.addEventListener('click', toggleTutorialVideoPlayback);
+    document.getElementById('tutorialVideoBackBtn')?.addEventListener('click', () => seekTutorialVideo(-5));
+    document.getElementById('tutorialVideoForwardBtn')?.addEventListener('click', () => seekTutorialVideo(5));
+    document.getElementById('tutorialVideoSeek')?.addEventListener('input', (e) => {
+      const video = document.getElementById('tutorialGuideVideo');
+      if (!video) return;
+      video.currentTime = Number(e.target.value) || 0;
+      updateTutorialVideoControls();
+    });
+    document.getElementById('tutorialGuideVideo')?.addEventListener('loadedmetadata', updateTutorialVideoControls);
+    document.getElementById('tutorialGuideVideo')?.addEventListener('timeupdate', updateTutorialVideoControls);
+    document.getElementById('tutorialGuideVideo')?.addEventListener('play', updateTutorialVideoControls);
+    document.getElementById('tutorialGuideVideo')?.addEventListener('pause', updateTutorialVideoControls);
     document.getElementById('tutorialGuideModal')?.addEventListener('click', (e) => {
       if (e.target?.id === 'tutorialGuideModal') closeTutorialGuide();
     });
     document.addEventListener('keydown', (e) => {
       const modal = document.getElementById('tutorialGuideModal');
       if (!modal?.classList.contains('active')) return;
+      if (e.target?.id === 'tutorialVideoSeek') return;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
