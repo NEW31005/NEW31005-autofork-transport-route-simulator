@@ -3011,7 +3011,7 @@ body.stamp-modal-open header{ pointer-events: none; }
   <div class="modal-overlay" id="tutorialGuideModal" aria-hidden="true">
     <div class="modal tutorial-modal" role="dialog" aria-modal="true" aria-labelledby="tutorialGuideTitle">
       <div class="modal-header">
-        <span class="modal-title">AutoFork搬送シミュレーター説明</span>
+        <span class="modal-title">AutoFork搬送シミュレーター使用方法</span>
         <button class="modal-close" id="tutorialGuideCloseBtn" type="button">×</button>
       </div>
       <div class="modal-body tutorial-body">
@@ -5860,8 +5860,7 @@ function draw() {
         title: '① 図面を読み込む',
         video: 'StampAssets/movie/①.mp4',
         items: [
-          'PDF、JPEG、PNGなどの図面・レイアウト画像を読み込み、キャンバスに表示します。',
-          '読み込んだ図面をもとに、縮尺、初期位置、ステーション、ルートを順番に設定していきます。'
+          'PDF、JPEG、PNGなどの図面・レイアウト画像を読み込み、キャンバスに表示します。'
         ]
       },
       {
@@ -5877,6 +5876,7 @@ function draw() {
         video: 'StampAssets/movie/③.mp4',
         items: [
           'AutoForkの出発・待機位置を図面上に配置します。',
+          '操作パネルから初期位置の向きを変更できます。キャンバス上では設置位置の変更が可能です。',
           '必要に応じて初期位置を複数登録し、ルートごとに使い分けできます。'
         ]
       },
@@ -5884,8 +5884,9 @@ function draw() {
         title: '④ ステーションを置く',
         video: 'StampAssets/movie/④.mp4',
         items: [
-          '荷積みステーション、荷下ろしステーションを図面上に配置します。',
-          '各ステーションでは荷積み・荷下ろしの回数を設定でき、搬送時間の試算に反映されます。'
+          '荷積みステーション、荷下ろしステーションを図面上に必ず1ヶ所以上配置します。',
+          '操作パネルから荷積みステーション、荷下ろしステーションの切り替えが可能です。細かな位置移動も操作パネルの矢印ボタンから操作できます。',
+          '各ステーションでは、ダブルクリックして表示される詳細パネルで荷積み・荷下ろしの回数を設定できます。'
         ]
       },
       {
@@ -5893,11 +5894,22 @@ function draw() {
         video: 'StampAssets/movie/⑤.mp4',
         items: [
           'ルートモードで図面上をクリックし、AutoForkの搬送ルートを作成します。',
-          '基本の流れは、初期位置からステーションを通り、初期位置へ戻る搬送ルートです。'
+          '一筆書きで初期位置からステーションを通り、初期位置へ戻る搬送ルートを描きます。',
+          'ルートの点線幅は、直進時に必要な通路幅（1.4m）を実寸換算して表示しています。通路や障害物に線が干渉しないかを目視で確認してください。',
+          'ルート点線◯は、旋回時に必要な通路幅（直径3.0m）を実寸換算して表示しています。点線◯が壁や障害物に干渉しないかを確認してください。'
         ]
       },
       {
-        title: '⑥ 走行デモを確認する',
+        title: '⑥ 積載走行区間を設定する',
+        video: 'StampAssets/movie/⑦.mp4',
+        items: [
+          '積載走行区間は、荷積み後から荷下ろしまでの走行区間を指定する設定です。',
+          '荷積みステーションから荷下ろしステーションの2点をクリックします。',
+          '2点クリック間が積載走行区間としてオレンジ線で表示され、積載速度での搬送時間計算に反映されます。'
+        ]
+      },
+      {
+        title: '⑦ 走行デモを確認する',
         video: 'StampAssets/movie/⑥.mp4',
         items: [
           '作成したルート上でAutoForkの走行イメージを再生できます。',
@@ -5907,18 +5919,10 @@ function draw() {
         note: '※走行デモにおけるAutoForkの走行方向はイメージであり、実際の走行方向とは異なります。'
       },
       {
-        title: '⑦ 積載走行区間を設定する',
-        video: 'StampAssets/movie/⑦.mp4',
-        items: [
-          '荷積み後から荷下ろしまでの区間を積載走行区間として設定します。',
-          '積載走行区間はオレンジ線で表示され、積載速度での搬送時間計算に反映されます。'
-        ]
-      },
-      {
         title: '⑧ パレット一括認識区間を設定する',
         video: 'StampAssets/movie/⑧.mp4',
         items: [
-          'パレット一括認識を行う区間を2点クリックで指定します。',
+          '必要に応じて、パレット一括認識を行う区間を2点クリックで指定します。',
           '認識区間の距離はパレット認識時間として計算に反映され、レポート図面にも表示されます。'
         ]
       },
