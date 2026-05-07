@@ -1264,7 +1264,9 @@
 
     .modal.large { max-width: 800px; }
     .modal.tutorial-modal {
-      max-width: min(1080px, calc(100vw - 28px));
+      width: min(1540px, calc(100vw - 32px));
+      max-width: none;
+      max-height: calc(100vh - 32px);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -1309,27 +1311,41 @@
       justify-content: center;
       box-shadow: 0 10px 24px rgba(17, 118, 212, 0.18);
     }
-    .tutorial-body { padding: 0; background: #f8fafc; overflow: auto; }
+    .tutorial-body {
+      padding: 0;
+      background: #f8fafc;
+      overflow: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
     .tutorial-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.8fr);
-      align-items: stretch;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+      align-items: start;
+      min-height: 0;
     }
     .tutorial-video-wrap {
-      background: #000;
+      background: #f8fafc;
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100%;
+      min-width: 0;
       aspect-ratio: 2710 / 1490;
       border-right: 1px solid #dbe7f3;
       overflow: hidden;
     }
     .tutorial-video {
       display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      background: #000;
+      width: calc(100% + var(--tutorial-crop-left, 0%) + var(--tutorial-crop-right, 0%));
+      height: calc(100% + var(--tutorial-crop-top, 0%) + var(--tutorial-crop-bottom, 0%));
+      margin-left: calc(-1 * var(--tutorial-crop-left, 0%));
+      margin-top: calc(-1 * var(--tutorial-crop-top, 0%));
+      max-width: none;
+      max-height: none;
+      object-fit: fill;
+      object-position: center;
+      background: #f8fafc;
     }
     .tutorial-copy {
       padding: 24px;
@@ -1337,6 +1353,9 @@
       flex-direction: column;
       gap: 14px;
       background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+      min-width: 0;
+      max-height: min(680px, calc(100vh - 168px));
+      overflow: auto;
     }
     .tutorial-step {
       color: #1176d4;
@@ -3017,7 +3036,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       <div class="modal-body tutorial-body">
         <div class="tutorial-layout">
           <div class="tutorial-video-wrap">
-            <video id="tutorialGuideVideo" class="tutorial-video" controls autoplay muted loop playsinline preload="metadata"></video>
+            <video id="tutorialGuideVideo" class="tutorial-video" autoplay muted loop playsinline preload="metadata"></video>
           </div>
           <div class="tutorial-copy">
             <div class="tutorial-step" id="tutorialGuideStep">1 / 9</div>
@@ -5859,6 +5878,7 @@ function draw() {
       {
         title: '① 図面を読み込む',
         video: 'StampAssets/movie/①.mp4',
+        crop: { left: '1.15%' },
         items: [
           'PDF、JPEG、PNGなどの図面・レイアウト画像を読み込み、キャンバスに表示します。'
         ]
@@ -5866,6 +5886,7 @@ function draw() {
       {
         title: '② 縮尺を設定する',
         video: 'StampAssets/movie/②.mp4',
+        crop: { left: '1.2%' },
         items: [
           '図面上で距離が分かる2点をクリックし、実際の距離を入力します。',
           '縮尺を設定すると、以降の距離・時間計算、スタンプ配置、ルート作成ができるようになります。'
@@ -5874,6 +5895,7 @@ function draw() {
       {
         title: '③ 初期位置を置く',
         video: 'StampAssets/movie/③.mp4',
+        crop: { left: '0.1%' },
         items: [
           'AutoForkの出発・待機位置を図面上に配置します。',
           '操作パネルから初期位置の向きを変更できます。キャンバス上では設置位置の変更が可能です。',
@@ -5921,6 +5943,7 @@ function draw() {
       {
         title: '⑧ パレット一括認識区間を設定する',
         video: 'StampAssets/movie/⑧.mp4',
+        crop: { left: '0.05%' },
         items: [
           '必要に応じて、パレット一括認識を行う区間を2点クリックで指定します。',
           '認識区間の距離はパレット認識時間として計算に反映され、レポート図面にも表示されます。'
@@ -5929,6 +5952,7 @@ function draw() {
       {
         title: '⑨ レポートを保存する',
         video: 'StampAssets/movie/⑨.mp4',
+        crop: { left: '0.1%', bottom: '3%' },
         items: [
           '作成したルート、距離、推定搬送時間、ステーション情報をレポートとして保存できます。',
           'PDF保存ではA4縦・A4横を指定でき、用途に合わせた向きで出力できます。',
@@ -5970,6 +5994,11 @@ function draw() {
       if (nextBtn) nextBtn.textContent = tutorialGuideIndex === total - 1 ? '完了' : '次へ';
 
       if (video) {
+        const crop = step.crop || {};
+        video.style.setProperty('--tutorial-crop-left', crop.left || '0%');
+        video.style.setProperty('--tutorial-crop-right', crop.right || '0%');
+        video.style.setProperty('--tutorial-crop-top', crop.top || '0%');
+        video.style.setProperty('--tutorial-crop-bottom', crop.bottom || '0%');
         video.pause();
         video.src = step.video;
         video.loop = true;
