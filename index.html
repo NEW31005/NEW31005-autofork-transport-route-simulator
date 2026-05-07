@@ -1355,7 +1355,7 @@
     }
     .tutorial-video-controls {
       display: grid;
-      grid-template-columns: auto auto minmax(120px, 1fr) auto auto;
+      grid-template-columns: auto minmax(120px, 1fr) auto auto;
       align-items: center;
       gap: 8px;
       padding: 10px 14px;
@@ -1388,6 +1388,11 @@
     .tutorial-video-control-btn.primary:hover {
       background: #0b65b7;
       color: #ffffff;
+    }
+    .tutorial-video-control-btn.speed-active {
+      border-color: #fb923c;
+      background: #fff7ed;
+      color: #c2410c;
     }
     .tutorial-video-seek {
       width: 100%;
@@ -1477,7 +1482,7 @@
       .modal.tutorial-modal { max-height: 94vh; }
       .tutorial-layout { grid-template-columns: 1fr; min-height: 0; }
       .tutorial-media-panel { border-right: 0; border-bottom: 1px solid #dbe7f3; }
-      .tutorial-video-controls { grid-template-columns: auto auto 1fr; }
+      .tutorial-video-controls { grid-template-columns: auto 1fr auto; }
       .tutorial-video-time { grid-column: 1 / -1; text-align: left; }
       .tutorial-copy { padding: 18px; }
       .tutorial-title { font-size: 18px; }
@@ -3097,10 +3102,9 @@ body.stamp-modal-open header{ pointer-events: none; }
               <video id="tutorialGuideVideo" class="tutorial-video" autoplay muted loop playsinline preload="metadata"></video>
             </div>
             <div class="tutorial-video-controls">
-              <button class="tutorial-video-control-btn" id="tutorialVideoBackBtn" type="button" title="5秒戻る">-5秒</button>
               <button class="tutorial-video-control-btn primary" id="tutorialVideoPlayBtn" type="button">一時停止</button>
               <input class="tutorial-video-seek" id="tutorialVideoSeek" type="range" min="0" max="0" value="0" step="0.1" aria-label="動画の再生位置">
-              <button class="tutorial-video-control-btn" id="tutorialVideoForwardBtn" type="button" title="5秒進む">+5秒</button>
+              <button class="tutorial-video-control-btn" id="tutorialVideoSpeedBtn" type="button" title="4倍速に切替">4倍速</button>
               <span class="tutorial-video-time" id="tutorialVideoTime">0:00 / 0:00</span>
             </div>
           </div>
@@ -6027,6 +6031,7 @@ function draw() {
       }
     ];
     let tutorialGuideIndex = 0;
+    let tutorialVideoPlaybackRate = 1;
 
     function formatTutorialVideoTime(seconds) {
       if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -6040,6 +6045,7 @@ function draw() {
       const seek = document.getElementById('tutorialVideoSeek');
       const timeEl = document.getElementById('tutorialVideoTime');
       const playBtn = document.getElementById('tutorialVideoPlayBtn');
+      const speedBtn = document.getElementById('tutorialVideoSpeedBtn');
       if (!video) return;
       const duration = Number.isFinite(video.duration) ? video.duration : 0;
       const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
@@ -6053,16 +6059,12 @@ function draw() {
       if (playBtn) {
         playBtn.textContent = video.paused ? '再生' : '一時停止';
       }
-    }
-
-    function seekTutorialVideo(deltaSeconds) {
-      const video = document.getElementById('tutorialGuideVideo');
-      if (!video) return;
-      const duration = Number.isFinite(video.duration) ? video.duration : 0;
-      const target = video.currentTime + deltaSeconds;
-      const next = duration ? Math.max(0, Math.min(duration, target)) : Math.max(0, target);
-      video.currentTime = next;
-      updateTutorialVideoControls();
+      if (speedBtn) {
+        const isFast = video.playbackRate >= 3.9;
+        speedBtn.textContent = isFast ? '等速' : '4倍速';
+        speedBtn.title = isFast ? '等速に戻す' : '4倍速に切替';
+        speedBtn.classList.toggle('speed-active', isFast);
+      }
     }
 
     function toggleTutorialVideoPlayback() {
@@ -6073,6 +6075,14 @@ function draw() {
       } else {
         video.pause();
       }
+      updateTutorialVideoControls();
+    }
+
+    function toggleTutorialVideoSpeed() {
+      const video = document.getElementById('tutorialGuideVideo');
+      if (!video) return;
+      tutorialVideoPlaybackRate = tutorialVideoPlaybackRate >= 3.9 ? 1 : 4;
+      video.playbackRate = tutorialVideoPlaybackRate;
       updateTutorialVideoControls();
     }
 
@@ -6117,6 +6127,7 @@ function draw() {
         video.src = step.video;
         video.loop = true;
         video.muted = true;
+        video.playbackRate = tutorialVideoPlaybackRate;
         video.load();
         updateTutorialVideoControls();
         if (modal?.classList.contains('active')) {
@@ -6164,8 +6175,7 @@ function draw() {
     document.getElementById('tutorialGuidePrevBtn')?.addEventListener('click', () => moveTutorialGuide(-1));
     document.getElementById('tutorialGuideNextBtn')?.addEventListener('click', () => moveTutorialGuide(1));
     document.getElementById('tutorialVideoPlayBtn')?.addEventListener('click', toggleTutorialVideoPlayback);
-    document.getElementById('tutorialVideoBackBtn')?.addEventListener('click', () => seekTutorialVideo(-5));
-    document.getElementById('tutorialVideoForwardBtn')?.addEventListener('click', () => seekTutorialVideo(5));
+    document.getElementById('tutorialVideoSpeedBtn')?.addEventListener('click', toggleTutorialVideoSpeed);
     document.getElementById('tutorialVideoSeek')?.addEventListener('input', (e) => {
       const video = document.getElementById('tutorialGuideVideo');
       if (!video) return;
