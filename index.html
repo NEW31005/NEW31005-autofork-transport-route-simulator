@@ -1901,6 +1901,69 @@
       justify-content: center;
     }
 
+    .export-image-modal { max-width: 560px; }
+    .export-image-choice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .export-image-choice {
+      display: flex;
+      min-height: 150px;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 8px;
+      padding: 18px;
+      border: 2px solid #d7e6f5;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      color: #1f2937;
+      cursor: pointer;
+      text-align: left;
+      box-shadow: 0 10px 24px rgba(17, 118, 212, 0.08);
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .export-image-choice:hover {
+      transform: translateY(-2px);
+      border-color: var(--hakuou-blue);
+      box-shadow: 0 16px 32px rgba(17, 118, 212, 0.16);
+    }
+    .export-image-choice-icon {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: var(--hakuou-blue-pale);
+      color: var(--hakuou-blue);
+      font-size: 20px;
+    }
+    .export-image-choice-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #111827;
+    }
+    .export-image-choice-text {
+      font-size: 12px;
+      line-height: 1.7;
+      color: #5b6675;
+    }
+    .export-image-note {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid #d7e6f5;
+      border-radius: 12px;
+      background: #f7fbff;
+      color: #4b5563;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    @media (max-width: 640px) {
+      .export-image-choice-grid { grid-template-columns: 1fr; }
+    }
+
   
     /* Stamp edit (Step2) */
     .stamp-edit-card { margin-bottom: 12px; }
@@ -2844,6 +2907,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="btn" id="importBtn">📂 読込</button>
           <input type="file" id="importInput" accept=".json" style="display: none;">
           <button class="btn btn-primary" id="reportBtn">📄 レポート</button>
+          <button class="btn btn-primary" id="canvasPngExportBtn">🖼 出力</button>
         </div>
       </div>
     </div>
@@ -3076,14 +3140,40 @@ body.stamp-modal-open header{ pointer-events: none; }
         <div class="report-preview" id="reportPreview"></div>
       </div>
       <div class="modal-footer report-footer-actions">
-        <select id="pdfOrientation" class="pdf-orientation-select" title="PDF用紙方向">
+        <select id="pdfOrientation" class="pdf-orientation-select" title="レポート用紙方向">
           <option value="p" selected>A4縦</option>
           <option value="l">A4横</option>
         </select>
-        <button class="btn" id="downloadReportBtn">💾 HTML保存</button>
         <button class="btn btn-primary" id="downloadPdfBtn">📑 PDF保存</button>
         <button class="btn" id="reportDrawioBtn">📐 draw.io保存</button>
         <button class="btn btn-success" id="inquiryBtn">📧 問い合わせ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="canvasPngExportModal" aria-hidden="true">
+    <div class="modal export-image-modal">
+      <div class="modal-header">
+        <span class="modal-title">🖼 PNG出力</span>
+        <button class="modal-close" id="canvasPngExportClose" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="export-image-choice-grid">
+          <button class="export-image-choice" type="button" data-canvas-png-export="with-floorplan">
+            <span class="export-image-choice-icon">🗺</span>
+            <span class="export-image-choice-title">図面あり</span>
+            <span class="export-image-choice-text">現在のキャンバス表示をそのままPNGで保存します。</span>
+          </button>
+          <button class="export-image-choice" type="button" data-canvas-png-export="transparent">
+            <span class="export-image-choice-icon">◎</span>
+            <span class="export-image-choice-title">図面なし</span>
+            <span class="export-image-choice-text">図面を抜き、描画した内容だけを背景透過PNGで保存します。</span>
+          </button>
+        </div>
+        <div class="export-image-note">保存時に名前と保存先を指定できます。</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="canvasPngExportCancel" type="button">閉じる</button>
       </div>
     </div>
   </div>
@@ -5230,6 +5320,497 @@ function draw() {
 
   ctx.restore();
 }
+
+    function drawPngExportTriangleArrow(targetCtx, x, y, angle, color, size) {
+      targetCtx.save();
+      targetCtx.translate(x, y);
+      targetCtx.rotate(angle);
+      targetCtx.beginPath();
+      targetCtx.moveTo(0, 0);
+      targetCtx.lineTo(-size, -size / 2);
+      targetCtx.lineTo(-size, size / 2);
+      targetCtx.closePath();
+      targetCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+      targetCtx.lineWidth = Math.max(1.5, size * 0.15);
+      targetCtx.lineJoin = 'round';
+      targetCtx.stroke();
+      targetCtx.fillStyle = color;
+      targetCtx.fill();
+      targetCtx.restore();
+    }
+
+    function drawSegmentOverlayForPngExport(targetCtx, route, seg, color, z, offset) {
+      if (!route || !seg || !route.points || route.points.length < 2) return;
+      let startIdx = Math.min(seg.startIdx, seg.endIdx);
+      let endIdx = Math.max(seg.startIdx, seg.endIdx);
+      if (startIdx < 0 || endIdx < 0) return;
+      if (startIdx >= route.points.length || endIdx >= route.points.length) return;
+      if (endIdx <= startIdx) return;
+
+      const ROUTE_CENTERLINE_THICKNESS_M = 0.12;
+      const routeLineWidthWorld = state.metersPerPixel
+        ? (ROUTE_CENTERLINE_THICKNESS_M / state.metersPerPixel)
+        : 4;
+      const routeLineWidthPx = routeLineWidthWorld * z;
+      const arrowSizePx = Math.max(10, routeLineWidthPx * 2.2);
+      const arrowSpacingPx = 160;
+
+      targetCtx.save();
+      targetCtx.strokeStyle = color;
+      targetCtx.lineWidth = routeLineWidthPx;
+      targetCtx.setLineDash([]);
+      targetCtx.lineJoin = 'round';
+      targetCtx.lineCap = 'round';
+      targetCtx.beginPath();
+      for (let i = startIdx; i <= endIdx; i++) {
+        const pt = route.points[i];
+        const px = pt.x * z + offset.x;
+        const py = pt.y * z + offset.y;
+        if (i === startIdx) targetCtx.moveTo(px, py);
+        else targetCtx.lineTo(px, py);
+      }
+      targetCtx.stroke();
+
+      let carryPx = 0;
+      for (let i = startIdx; i < endIdx; i++) {
+        const p1 = route.points[i];
+        const p2 = route.points[i + 1];
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const segLenWorld = Math.hypot(dx, dy);
+        if (segLenWorld < 1e-6) continue;
+        const segLenPx = segLenWorld * z;
+        const angle = Math.atan2(dy, dx);
+        let distToNext = arrowSpacingPx - carryPx;
+        while (distToNext <= segLenPx) {
+          const t = distToNext / segLenPx;
+          const x = (p1.x + dx * t) * z + offset.x;
+          const y = (p1.y + dy * t) * z + offset.y;
+          drawPngExportTriangleArrow(targetCtx, x, y, angle, color, arrowSizePx);
+          distToNext += arrowSpacingPx;
+        }
+        carryPx = (segLenPx + carryPx) % arrowSpacingPx;
+      }
+      targetCtx.restore();
+    }
+
+    function drawRouteLayersForPngExport(targetCtx, offset, z) {
+      const layerMode = state.layerMode ?? 3;
+      const showTurn = layerMode >= 2;
+      const showCorridor = layerMode >= 3;
+      (state.routes || []).forEach((route, ri) => {
+        if (!isRouteVisible(ri)) return;
+        if (!route || !Array.isArray(route.points) || route.points.length < 1) return;
+        const color = routeColors[ri % routeColors.length];
+        const isActive = ri === state.activeRouteIndex;
+
+        if (route.points.length >= 2) {
+          const ROUTE_CENTERLINE_THICKNESS_M = 0.12;
+          const routeLineWidthWorld = state.metersPerPixel
+            ? (ROUTE_CENTERLINE_THICKNESS_M / state.metersPerPixel)
+            : 4;
+          const routeLineWidthPx = routeLineWidthWorld * z;
+
+          targetCtx.save();
+          targetCtx.strokeStyle = color;
+          targetCtx.lineWidth = routeLineWidthPx;
+          targetCtx.setLineDash([]);
+          targetCtx.lineJoin = 'round';
+          targetCtx.lineCap = 'round';
+          targetCtx.beginPath();
+          targetCtx.moveTo(route.points[0].x * z + offset.x, route.points[0].y * z + offset.y);
+          for (let i = 1; i < route.points.length; i++) {
+            targetCtx.lineTo(route.points[i].x * z + offset.x, route.points[i].y * z + offset.y);
+          }
+          targetCtx.stroke();
+          targetCtx.restore();
+
+          if (state.metersPerPixel && showCorridor) {
+            const corridorOffsetWorld = 0.7 / state.metersPerPixel;
+            const corridorLineWidthWorld = 0.06 / state.metersPerPixel;
+            targetCtx.save();
+            targetCtx.lineWidth = corridorLineWidthWorld * z;
+            targetCtx.setLineDash([10, 8]);
+            targetCtx.strokeStyle = color;
+            targetCtx.lineJoin = 'round';
+            targetCtx.lineCap = 'round';
+            for (let i = 0; i < route.points.length - 1; i++) {
+              const p1 = route.points[i];
+              const p2 = route.points[i + 1];
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
+              const len = Math.hypot(dx, dy);
+              if (len < 1e-6) continue;
+              const nx = -dy / len;
+              const ny = dx / len;
+              targetCtx.beginPath();
+              targetCtx.moveTo((p1.x + nx * corridorOffsetWorld) * z + offset.x, (p1.y + ny * corridorOffsetWorld) * z + offset.y);
+              targetCtx.lineTo((p2.x + nx * corridorOffsetWorld) * z + offset.x, (p2.y + ny * corridorOffsetWorld) * z + offset.y);
+              targetCtx.stroke();
+              targetCtx.beginPath();
+              targetCtx.moveTo((p1.x - nx * corridorOffsetWorld) * z + offset.x, (p1.y - ny * corridorOffsetWorld) * z + offset.y);
+              targetCtx.lineTo((p2.x - nx * corridorOffsetWorld) * z + offset.x, (p2.y - ny * corridorOffsetWorld) * z + offset.y);
+              targetCtx.stroke();
+            }
+            targetCtx.restore();
+          }
+
+          {
+            const arrowSpacingPx = 160;
+            const arrowSizePx = Math.max(10, routeLineWidthPx * 2.2);
+            let carryPx = 0;
+            for (let i = 0; i < route.points.length - 1; i++) {
+              const p1 = route.points[i];
+              const p2 = route.points[i + 1];
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
+              const segLenWorld = Math.hypot(dx, dy);
+              if (segLenWorld < 1e-6) continue;
+              const segLenPx = segLenWorld * z;
+              const angle = Math.atan2(dy, dx);
+              let distToNext = arrowSpacingPx - carryPx;
+              while (distToNext <= segLenPx) {
+                const t = distToNext / segLenPx;
+                const x = (p1.x + dx * t) * z + offset.x;
+                const y = (p1.y + dy * t) * z + offset.y;
+                drawPngExportTriangleArrow(targetCtx, x, y, angle, color, arrowSizePx);
+                distToNext += arrowSpacingPx;
+              }
+              carryPx = (segLenPx + carryPx) % arrowSpacingPx;
+            }
+          }
+
+          if (state.showDirectionArrows !== false) {
+            const DIRECTION_ARROW_OFFSET_M = 1.25;
+            const DIRECTION_ARROW_SPACING_M = 5.0;
+            const DIRECTION_ARROW_SIZE_M = 0.55;
+            const arrowColor = directionArrowColors[ri % directionArrowColors.length] || directionArrowColors[0];
+            const hasScale = !!state.metersPerPixel;
+            const arrowOffsetWorld = hasScale ? (DIRECTION_ARROW_OFFSET_M / state.metersPerPixel) : (36 / Math.max(z, 0.001));
+            const arrowSpacingWorld = hasScale ? (DIRECTION_ARROW_SPACING_M / state.metersPerPixel) : (160 / Math.max(z, 0.001));
+            const arrowSizePx = hasScale
+              ? Math.max(16, Math.min(34, (DIRECTION_ARROW_SIZE_M / state.metersPerPixel) * z))
+              : 22;
+            const totalRouteWorld = route.points.slice(1).reduce((sum, pt, idx) => {
+              const prev = route.points[idx];
+              return sum + Math.hypot(pt.x - prev.x, pt.y - prev.y);
+            }, 0);
+            if (totalRouteWorld > 1e-6) {
+              let routeDistWorld = 0;
+              let nextArrowWorld = Math.min(arrowSpacingWorld * 0.5, totalRouteWorld * 0.5);
+              targetCtx.save();
+              targetCtx.font = `900 ${arrowSizePx}px "Noto Sans JP", "Arial Black", sans-serif`;
+              targetCtx.textAlign = 'center';
+              targetCtx.textBaseline = 'middle';
+              targetCtx.lineJoin = 'round';
+              for (let i = 0; i < route.points.length - 1; i++) {
+                const p1 = route.points[i];
+                const p2 = route.points[i + 1];
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const segLenWorld = Math.hypot(dx, dy);
+                if (segLenWorld < 1e-6) continue;
+                const angle = Math.atan2(dy, dx);
+                const leftNx = dy / segLenWorld;
+                const leftNy = -dx / segLenWorld;
+                while (nextArrowWorld <= routeDistWorld + segLenWorld) {
+                  const localDistWorld = nextArrowWorld - routeDistWorld;
+                  const t = localDistWorld / segLenWorld;
+                  const xWorld = p1.x + dx * t + leftNx * arrowOffsetWorld;
+                  const yWorld = p1.y + dy * t + leftNy * arrowOffsetWorld;
+                  targetCtx.save();
+                  targetCtx.translate(xWorld * z + offset.x, yWorld * z + offset.y);
+                  targetCtx.rotate(angle + Math.PI / 2);
+                  targetCtx.strokeStyle = arrowColor.stroke;
+                  targetCtx.lineWidth = Math.max(4, arrowSizePx * 0.24);
+                  targetCtx.strokeText('↑', 0, 0);
+                  targetCtx.fillStyle = arrowColor.fill;
+                  targetCtx.fillText('↑', 0, 0);
+                  targetCtx.restore();
+                  nextArrowWorld += arrowSpacingWorld;
+                }
+                routeDistWorld += segLenWorld;
+              }
+              targetCtx.restore();
+            }
+          }
+        }
+
+        (route.loadedSegments || []).forEach(seg => {
+          drawSegmentOverlayForPngExport(targetCtx, route, seg, '#fd7e14', z, offset);
+        });
+
+        (route.recognizePaths || []).forEach(path => {
+          if (!path || !Array.isArray(path.points) || path.points.length < 2) return;
+          targetCtx.save();
+          targetCtx.strokeStyle = '#e83e8c';
+          targetCtx.lineWidth = Math.max(1, 8 * z);
+          targetCtx.lineCap = 'round';
+          targetCtx.setLineDash([12 * z, 6 * z]);
+          targetCtx.beginPath();
+          targetCtx.moveTo(path.points[0].x * z + offset.x, path.points[0].y * z + offset.y);
+          for (let i = 1; i < path.points.length; i++) {
+            targetCtx.lineTo(path.points[i].x * z + offset.x, path.points[i].y * z + offset.y);
+          }
+          targetCtx.stroke();
+          targetCtx.setLineDash([]);
+          const midPt = path.points[Math.floor(path.points.length / 2)];
+          targetCtx.fillStyle = '#e83e8c';
+          targetCtx.font = 'bold 10px sans-serif';
+          targetCtx.textAlign = 'center';
+          targetCtx.fillText('👁認識', midPt.x * z + offset.x, midPt.y * z + offset.y - 12);
+          targetCtx.restore();
+        });
+
+        if (showTurn && Array.isArray(route.turn180Points) && route.turn180Points.length) {
+          const turn180RadiusWorld = state.metersPerPixel ? (1.5 / state.metersPerPixel) : 12;
+          targetCtx.save();
+          targetCtx.setLineDash([4 * z, 4 * z]);
+          targetCtx.lineWidth = 2;
+          targetCtx.strokeStyle = '#dc3545';
+          route.turn180Points.forEach(tp => {
+            targetCtx.beginPath();
+            targetCtx.arc(tp.x * z + offset.x, tp.y * z + offset.y, turn180RadiusWorld * z, 0, Math.PI * 2);
+            targetCtx.stroke();
+          });
+          targetCtx.restore();
+        }
+
+        if (isActive && showTurn) {
+          const turnPoints = (calculateRouteTime(route).turnPoints || []);
+          if (turnPoints.length) {
+            const turnRadiusWorld = state.metersPerPixel ? (1.5 / state.metersPerPixel) : 12;
+            targetCtx.save();
+            targetCtx.setLineDash([4 * z, 4 * z]);
+            targetCtx.lineWidth = 2;
+            targetCtx.strokeStyle = '#343a40';
+            turnPoints.forEach(tp => {
+              targetCtx.beginPath();
+              targetCtx.arc(tp.x * z + offset.x, tp.y * z + offset.y, turnRadiusWorld * z, 0, Math.PI * 2);
+              targetCtx.stroke();
+            });
+            targetCtx.restore();
+          }
+        }
+      });
+    }
+
+    function drawWorldGridForPngExport(targetCtx, offset, z, targetCanvas) {
+      const mode = state.gridMode || 'off';
+      if (mode === 'off') return;
+      const spacingWorld = (mode === 'coarse') ? 100 : (mode === 'fine' ? 25 : 10);
+      const wxMin = (0 - offset.x) / z;
+      const wxMax = (targetCanvas.width - offset.x) / z;
+      const wyMin = (0 - offset.y) / z;
+      const wyMax = (targetCanvas.height - offset.y) / z;
+      const startX = Math.floor(wxMin / spacingWorld) * spacingWorld;
+      const endX = Math.ceil(wxMax / spacingWorld) * spacingWorld;
+      const startY = Math.floor(wyMin / spacingWorld) * spacingWorld;
+      const endY = Math.ceil(wyMax / spacingWorld) * spacingWorld;
+      targetCtx.save();
+      targetCtx.strokeStyle = (mode === 'coarse') ? 'rgba(0,0,0,0.18)' : (mode === 'fine' ? 'rgba(0,0,0,0.10)' : 'rgba(0,0,0,0.06)');
+      targetCtx.lineWidth = Math.min(2.5, Math.max(1, 1 * z));
+      targetCtx.setLineDash([]);
+      for (let x = startX; x <= endX; x += spacingWorld) {
+        const sx = x * z + offset.x;
+        targetCtx.beginPath();
+        targetCtx.moveTo(sx, 0);
+        targetCtx.lineTo(sx, targetCanvas.height);
+        targetCtx.stroke();
+      }
+      for (let y = startY; y <= endY; y += spacingWorld) {
+        const sy = y * z + offset.y;
+        targetCtx.beginPath();
+        targetCtx.moveTo(0, sy);
+        targetCtx.lineTo(targetCanvas.width, sy);
+        targetCtx.stroke();
+      }
+      targetCtx.restore();
+    }
+
+    function drawSimpleHomeMarkerForPngExport(targetCtx, home, offset, z) {
+      normalizeHomePosition(home);
+      const hx = home.x * z + offset.x;
+      const hy = home.y * z + offset.y;
+      const r = Math.max(8, (state.homeRadiusWorld || 12) * z);
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(hx, hy, r, 0, Math.PI * 2);
+      targetCtx.fillStyle = 'rgba(111, 66, 193, 0.18)';
+      targetCtx.fill();
+      targetCtx.strokeStyle = '#6f42c1';
+      targetCtx.lineWidth = Math.max(2, 2 * z);
+      targetCtx.stroke();
+      targetCtx.fillStyle = '#6f42c1';
+      targetCtx.font = `bold ${Math.max(12, 14 * z)}px sans-serif`;
+      targetCtx.textAlign = 'center';
+      targetCtx.textBaseline = 'middle';
+      targetCtx.fillText(home.id || 'H', hx, hy);
+      targetCtx.restore();
+    }
+
+    function drawSimpleStationMarkerForPngExport(targetCtx, station, offset, z) {
+      const sx = station.x * z + offset.x;
+      const sy = station.y * z + offset.y;
+      const size = Math.max(10, (state.stationRadiusWorld || 14) * z);
+      let fillColor, strokeColor;
+      if ((station.loadingCount || 0) > 0 && (station.unloadingCount || 0) > 0) {
+        fillColor = 'rgba(255, 193, 7, 0.2)';
+        strokeColor = '#ffc107';
+      } else if ((station.loadingCount || 0) > 0) {
+        fillColor = 'rgba(40, 167, 69, 0.2)';
+        strokeColor = '#28a745';
+      } else {
+        fillColor = 'rgba(0, 82, 154, 0.2)';
+        strokeColor = '#00529A';
+      }
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(sx, sy, size, 0, Math.PI * 2);
+      targetCtx.fillStyle = fillColor;
+      targetCtx.fill();
+      targetCtx.strokeStyle = strokeColor;
+      targetCtx.lineWidth = Math.max(2, 3 * z);
+      targetCtx.stroke();
+      drawStationNameLabel(targetCtx, station, sx, sy - size, z);
+      targetCtx.restore();
+    }
+
+    function drawStampFallbackLayerForPngExport(targetCtx, offset, z) {
+      if (!state.metersPerPixel || !Array.isArray(state.stamps) || state.stamps.length === 0) return;
+      state.stamps.forEach(stamp => {
+        const def = getStampDef(stamp);
+        const baseSize = getStampBaseSizeWorld(stamp);
+        if (!def || !baseSize) return;
+        const cx = offset.x + stamp.x * z;
+        const cy = offset.y + stamp.y * z;
+        const w = Math.max(18, baseSize.w * z);
+        const h = Math.max(18, baseSize.h * z);
+        const label = def.label || 'スタンプ';
+        targetCtx.save();
+        targetCtx.translate(cx, cy);
+        const rotDeg = normalizeRot(stamp.rot || 0);
+        if (rotDeg) targetCtx.rotate(rotDeg * Math.PI / 180);
+        targetCtx.scale(stamp.flipX ? -1 : 1, stamp.flipY ? -1 : 1);
+        targetCtx.fillStyle = 'rgba(17, 118, 212, 0.08)';
+        targetCtx.strokeStyle = '#1176d4';
+        targetCtx.lineWidth = 2;
+        targetCtx.setLineDash([8, 5]);
+        targetCtx.fillRect(-w / 2, -h / 2, w, h);
+        targetCtx.strokeRect(-w / 2, -h / 2, w, h);
+        targetCtx.setLineDash([]);
+        targetCtx.fillStyle = '#1176d4';
+        targetCtx.font = `800 ${Math.max(10, Math.min(18, h * 0.18))}px "Noto Sans JP", sans-serif`;
+        targetCtx.textAlign = 'center';
+        targetCtx.textBaseline = 'middle';
+        targetCtx.fillText(label, 0, 0, Math.max(24, w - 10));
+        targetCtx.restore();
+      });
+    }
+
+    function renderCanvasPngExport({ includeFloorplan = false, safeVectorOnly = false } = {}) {
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = Math.max(1, canvas.width);
+      exportCanvas.height = Math.max(1, canvas.height);
+      const exportCtx = exportCanvas.getContext('2d');
+      const offset = getImageOffset();
+      const z = state.zoom || 1;
+
+      exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+      if (includeFloorplan) {
+        exportCtx.fillStyle = '#f1f3f5';
+        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        drawFloorplanImage(exportCtx, state.img, offset.x, offset.y, state.imgWidth * z, state.imgHeight * z);
+        drawWorldGridForPngExport(exportCtx, offset, z, exportCanvas);
+      }
+      if (safeVectorOnly) drawStampFallbackLayerForPngExport(exportCtx, offset, z);
+      else drawStampsLayer(exportCtx, offset, z, true);
+      (state.homePositions || []).forEach(home => {
+        if (safeVectorOnly) drawSimpleHomeMarkerForPngExport(exportCtx, home, offset, z);
+        else drawHomeMarker(exportCtx, home, offset, z, { isActive: false });
+      });
+      drawRouteLayersForPngExport(exportCtx, offset, z);
+      (state.stations || []).forEach(station => {
+        if (safeVectorOnly) drawSimpleStationMarkerForPngExport(exportCtx, station, offset, z);
+        else drawStationMarker(exportCtx, station, offset, z, { isSelected: false });
+      });
+      drawTextAnnotationsLayer(exportCtx, offset, z, true);
+      return exportCanvas;
+    }
+
+    function renderTransparentCanvasPngExport(safeVectorOnly = false) {
+      return renderCanvasPngExport({ includeFloorplan: false, safeVectorOnly });
+    }
+
+    function canvasToPngBlob(sourceCanvas) {
+      return new Promise((resolve, reject) => {
+        try {
+          sourceCanvas.toBlob(blob => {
+            if (blob) resolve(blob);
+            else reject(new Error('PNG画像を生成できませんでした'));
+          }, 'image/png');
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    function openCanvasPngExportModal() {
+      if (!state.img) {
+        showToast('先に図面を読み込んでください', 'warning');
+        return;
+      }
+      const modal = document.getElementById('canvasPngExportModal');
+      if (!modal) return;
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeCanvasPngExportModal() {
+      const modal = document.getElementById('canvasPngExportModal');
+      if (!modal) return;
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    async function saveCanvasPngExport(mode) {
+      if (!state.img) {
+        showToast('先に図面を読み込んでください', 'warning');
+        return;
+      }
+      closeCanvasPngExportModal();
+      const isTransparent = mode === 'transparent';
+      const fileName = `autofork_canvas_${isTransparent ? 'transparent' : 'floorplan'}_${new Date().toISOString().slice(0, 10)}.png`;
+      try {
+        showToast('PNG出力中...', 'warning');
+        await waitForReportStampImagesLoaded();
+        let sourceCanvas;
+        if (isTransparent) {
+          sourceCanvas = renderTransparentCanvasPngExport();
+        } else {
+          draw();
+          sourceCanvas = canvas;
+        }
+        let blob;
+        try {
+          blob = await canvasToPngBlob(sourceCanvas);
+        } catch (err) {
+          console.warn('PNG export fell back to safe renderer:', err);
+          sourceCanvas = renderCanvasPngExport({
+            includeFloorplan: !isTransparent,
+            safeVectorOnly: true
+          });
+          blob = await canvasToPngBlob(sourceCanvas);
+        }
+        const saved = await saveBlobWithPicker(blob, fileName, 'PNG画像', { 'image/png': ['.png'] });
+        if (saved) showToast('PNG保存完了');
+      } catch (err) {
+        console.error(err);
+        showToast('PNG出力に失敗しました', 'error');
+      } finally {
+        requestRedraw();
+      }
+    }
 
     function calcSegmentDistance(route, startIdx, endIdx) {
       if (!state.metersPerPixel) return 0;
@@ -9462,6 +10043,15 @@ measureBtn?.addEventListener('click', () => {
     });
 
     document.getElementById('reportDrawioBtn')?.addEventListener('click', saveDrawioFile);
+    document.getElementById('canvasPngExportBtn')?.addEventListener('click', openCanvasPngExportModal);
+    document.getElementById('canvasPngExportClose')?.addEventListener('click', closeCanvasPngExportModal);
+    document.getElementById('canvasPngExportCancel')?.addEventListener('click', closeCanvasPngExportModal);
+    document.getElementById('canvasPngExportModal')?.addEventListener('click', (event) => {
+      if (event.target === event.currentTarget) closeCanvasPngExportModal();
+    });
+    document.querySelectorAll('[data-canvas-png-export]').forEach(btn => {
+      btn.addEventListener('click', () => saveCanvasPngExport(btn.dataset.canvasPngExport));
+    });
 
     function getReportExportCss() {
       const isLandscape = getPdfOrientation() === 'l';
@@ -9663,19 +10253,6 @@ measureBtn?.addEventListener('click', () => {
       return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>AutoFork レポート</title><style>${getReportExportCss()}</style></head><body>${content}</body></html>`;
     }
 
-    document.getElementById('downloadReportBtn').addEventListener('click', async () => {
-      const content = document.getElementById('reportPreview').innerHTML;
-      const full = buildReportHtmlDocument(content);
-      const blob = new Blob([full], { type: 'text/html' });
-      const saved = await saveBlobWithPicker(
-        blob,
-        `autofork_report_${new Date().toISOString().slice(0, 10)}.html`,
-        'AutoFork HTML report',
-        { 'text/html': ['.html'] }
-      );
-      if (saved) showToast('HTML保存完了');
-    });
-
     // PDF/Inquiry export helpers (capture full report incl. route images)
     async function waitForImagesLoaded(rootEl) {
       const imgs = Array.from(rootEl.querySelectorAll('img'));
@@ -9701,6 +10278,21 @@ measureBtn?.addEventListener('click', () => {
         probe.src = src;
         if (probe.complete) resolve();
       })));
+    }
+
+    function sanitizeReportCloneForCanvas(clone) {
+      clone.querySelectorAll('img.report-logo').forEach(img => {
+        const fallback = document.createElement('div');
+        fallback.textContent = 'HAKUOH ROBOTICS';
+        fallback.style.cssText = 'width:164px;min-height:36px;display:flex;align-items:center;justify-content:center;border:2px solid #00529A;color:#00529A;font-weight:900;font-size:14px;letter-spacing:0;background:#fff;';
+        img.replaceWith(fallback);
+      });
+      clone.querySelectorAll('svg image').forEach(img => {
+        const href = img.getAttribute('href') || img.getAttribute('xlink:href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || '';
+        if (href && !href.startsWith('data:') && !href.startsWith('blob:')) {
+          img.remove();
+        }
+      });
     }
 
     async function captureReportCanvasForExport() {
@@ -9756,6 +10348,7 @@ measureBtn?.addEventListener('click', () => {
       clone.style.maxHeight = 'none';
       clone.style.overflow = 'visible';
       clone.style.padding = '0';
+      sanitizeReportCloneForCanvas(clone);
       exportWrap.appendChild(clone);
       document.body.appendChild(exportWrap);
 
@@ -9821,24 +10414,8 @@ measureBtn?.addEventListener('click', () => {
     });
 
     // PDF Export
-    document.getElementById('downloadPdfBtn').addEventListener('click', async () => {
+    document.getElementById('downloadPdfBtn')?.addEventListener('click', async () => {
       const fileName = `autofork_report_${new Date().toISOString().slice(0, 10)}.pdf`;
-      let saveHandle = null;
-      if (window.showSaveFilePicker) {
-        try {
-          // The save dialog must be opened immediately after the click, before PDF generation awaits.
-          saveHandle = await window.showSaveFilePicker({
-            suggestedName: fileName,
-            types: [{
-              description: 'AutoFork PDF report',
-              accept: { 'application/pdf': ['.pdf'] }
-            }]
-          });
-        } catch (err) {
-          if (err && err.name === 'AbortError') return;
-          console.warn('PDF save picker failed. Falling back to download.', err);
-        }
-      }
       showToast('PDF生成中...', 'warning');
       try {
         const orientation = getPdfOrientation();
@@ -9851,14 +10428,9 @@ measureBtn?.addEventListener('click', () => {
           addCanvasToPdfSinglePage(pdf, canvas);
         });
 
-        const blob = pdf.output('blob');
-        if (saveHandle) {
-          const writable = await saveHandle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } else {
-          downloadBlob(blob, fileName);
-        }
+        const arrayBuffer = pdf.output('arraybuffer');
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        downloadBlob(blob, fileName);
         showToast('PDF保存完了');
       } catch (e) {
         showToast('PDF生成に失敗しました', 'error');
@@ -9871,14 +10443,16 @@ measureBtn?.addEventListener('click', () => {
       showToast('問い合わせフォームへ移動準備中...', 'warning');
       
       try {
-        // Generate PDF data
-        const canvas = await captureReportCanvasForExport();
-        
+        const orientation = getPdfOrientation();
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF(getPdfOrientation(), 'mm', 'a4');
-        
-        addCanvasToPdfFitPage(pdf, canvas);
-        pdf.save('autofork_report.pdf');
+        const pdf = new jsPDF(orientation, 'mm', 'a4');
+        const canvases = await captureReportPageCanvasesForExport();
+        canvases.forEach((canvas, idx) => {
+          if (idx > 0) pdf.addPage('a4', orientation);
+          addCanvasToPdfSinglePage(pdf, canvas);
+        });
+        const arrayBuffer = pdf.output('arraybuffer');
+        downloadBlob(new Blob([arrayBuffer], { type: 'application/pdf' }), 'autofork_report.pdf');
         
         // Open inquiry form (placeholder URL)
         const inquiryUrl = 'https://www.hakuoh-robotics.co.jp/contact/';
