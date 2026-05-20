@@ -272,30 +272,6 @@
       margin-bottom: 12px;
     }
 
-    .help-box-title {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--hakuou-blue);
-      margin-bottom: 6px;
-    }
-
-    .help-box ol {
-      font-size: 10px;
-      color: var(--gray-700);
-      padding-left: 16px;
-      margin: 0;
-    }
-
-    .help-box li { margin-bottom: 2px; }
-
-
-    .help-box-desc{
-      font-size: 10px;
-      color: var(--gray-700);
-      margin-bottom: 8px;
-      line-height: 1.45;
-    }
-
     .howto-body{
       font-size: 10px;
       color: var(--gray-700);
@@ -632,6 +608,46 @@
 
     .file-upload-text { font-size: 11px; font-weight: 600; color: var(--gray-700); }
     .file-upload-hint { font-size: 9px; color: var(--gray-500); margin-top: 2px; }
+
+    .loaded-file-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 10px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .loaded-file-card[hidden] { display: none !important; }
+
+    .loaded-file-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .loaded-file-label {
+      font-size: 9px;
+      color: var(--gray-500);
+      margin-bottom: 2px;
+    }
+
+    .loaded-file-name {
+      font-size: 11px;
+      color: var(--gray-800);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .loaded-file-delete {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      font-size: 10px;
+    }
 
     /* Mode Selector */
     .mode-selector {
@@ -2361,22 +2377,11 @@ body.stamp-modal-open header{ pointer-events: none; }
       </div>
       <div class="panel-body">
         <div class="help-box">
-          <div class="help-box-title">📖 使用方法</div>
-          <div class="help-box-desc">図面・写真を読み込み、縮尺を設定して搬送ルートを描くことで、総距離と概算サイクルタイムを算出できます。</div>
-          <ol>
-            <li>図面・写真をアップロード</li>
-            <li><b>縮尺</b>：2点クリック→実距離入力</li>
-            <li><b>初期位置</b>：AutoFork初期位置を設定</li>
-            <li><b>ステーション</b>：荷積み・荷下ろし地点と回数</li>
-            <li><b>ルート</b>：経由点をクリックで追加</li>
-            <li><b>積載走行</b>：ルート上で積載走行区間を設定</li>
-            <li><b>パレット認識</b>：必要に応じて認識区間を新規描画で設定</li>
-          </ol>
           <button class="btn btn-primary tutorial-open-btn" id="tutorialGuideBtn" type="button">動画で使い方を見る</button>
 
         <div class="accordion" id="howtoAccordion">
           <button class="accordion-header" id="howtoToggle">
-            <span>📘 詳しい使い方</span>
+            <span>📘 使い方</span>
             <span class="accordion-arrow">▼</span>
           </button>
           <div class="accordion-body">
@@ -2460,26 +2465,15 @@ body.stamp-modal-open header{ pointer-events: none; }
           <div class="file-upload-hint">PNG / JPG / PDF</div>
         </div>
 
-        <div class="divider"></div>
-
-        <div class="accordion" id="paramsAccordion">
-          <button class="accordion-header" id="paramsToggle">
-            <span>⚙ 計算基準パラメーター</span>
-            <span class="accordion-arrow">▼</span>
-          </button>
-          <div class="accordion-body">
-            <div class="param-grid">
-              <div class="param-item"><span class="param-label">空荷走行</span><span class="param-value">5.0 km/h</span></div>
-              <div class="param-item"><span class="param-label">積載走行</span><span class="param-value">4.5 km/h</span></div>
-              <div class="param-item"><span class="param-label">パレット認識</span><span class="param-value">0.72 km/h</span></div>
-              <div class="param-item"><span class="param-label">90°旋回</span><span class="param-value">10 秒</span></div>
-              <div class="param-item"><span class="param-label">180°旋回</span><span class="param-value">13 秒</span></div>
-              <div class="param-item"><span class="param-label">荷積み時間</span><span class="param-value">6 秒</span></div>
-              <div class="param-item"><span class="param-label">荷下ろし時間</span><span class="param-value">6 秒</span></div>
-              <div class="param-item"><span class="param-label">タスク追加</span><span class="param-value">5 秒</span></div>
-            </div>
+        <div class="loaded-file-card" id="loadedFileCard" hidden>
+          <div class="loaded-file-meta">
+            <div class="loaded-file-label">読み込み済み図面</div>
+            <div class="loaded-file-name" id="loadedFileName">-</div>
           </div>
+          <button class="btn btn-secondary loaded-file-delete" id="loadedFileDeleteBtn" type="button">削除</button>
         </div>
+
+        <div class="divider"></div>
 
         <div class="section-title">編集モード</div>
         <div class="mode-selector">
@@ -2957,6 +2951,25 @@ body.stamp-modal-open header{ pointer-events: none; }
             <div class="corridor-item">
               <div class="corridor-label">旋回時：直径3.0m</div>
               <div>旋回ポイントの点線◯は、旋回時に必要な通路幅（直径3.0m）を実寸換算して表示しています。点線◯が壁や障害物に干渉しないかを確認してください。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion" id="paramsAccordion">
+          <button class="accordion-header" id="paramsToggle">
+            <span>⚙ 計算基準パラメーター</span>
+            <span class="accordion-arrow">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="param-grid">
+              <div class="param-item"><span class="param-label">空荷走行</span><span class="param-value">5.0 km/h</span></div>
+              <div class="param-item"><span class="param-label">積載走行</span><span class="param-value">4.5 km/h</span></div>
+              <div class="param-item"><span class="param-label">パレット認識</span><span class="param-value">0.72 km/h</span></div>
+              <div class="param-item"><span class="param-label">90°旋回</span><span class="param-value">10 秒</span></div>
+              <div class="param-item"><span class="param-label">180°旋回</span><span class="param-value">13 秒</span></div>
+              <div class="param-item"><span class="param-label">荷積み時間</span><span class="param-value">6 秒</span></div>
+              <div class="param-item"><span class="param-label">荷下ろし時間</span><span class="param-value">6 秒</span></div>
+              <div class="param-item"><span class="param-label">タスク追加</span><span class="param-value">5 秒</span></div>
             </div>
           </div>
         </div>
@@ -3562,6 +3575,9 @@ function getStampDef(stampOrType) {
     const canvasHint = document.getElementById('canvasHint');
     const fileInput = document.getElementById('fileInput');
     const fileUpload = document.getElementById('fileUpload');
+    const loadedFileCard = document.getElementById('loadedFileCard');
+    const loadedFileName = document.getElementById('loadedFileName');
+    const loadedFileDeleteBtn = document.getElementById('loadedFileDeleteBtn');
     const modeButtons = document.querySelectorAll('.mode-selector:not(.sub) .mode-btn');
     const subModeButtons = document.querySelectorAll('.mode-selector.sub .mode-btn');
     const scaleWarning = document.getElementById('scaleWarning');
@@ -4097,11 +4113,47 @@ function openStampModal(){
           state.floorplanDataUrl = dataUrl;
           state.imgWidth = img.naturalWidth || img.width;
           state.imgHeight = img.naturalHeight || img.height;
+          updateFileUploadDisplay();
           resolve(img);
         };
         img.onerror = () => reject(new Error('Embedded floorplan image load failed'));
         img.src = dataUrl;
       });
+    }
+
+    function updateFileUploadDisplay() {
+      const hasFloorplan = !!state.img;
+      if (fileUpload) fileUpload.hidden = hasFloorplan;
+      if (loadedFileCard) loadedFileCard.hidden = !hasFloorplan;
+      if (loadedFileName) loadedFileName.textContent = hasFloorplan ? (state.imgName || '読み込み済み図面') : '-';
+    }
+
+    function clearLoadedFloorplan() {
+      if (!state.img && !state.floorplanDataUrl && !state.imgName) return;
+      try {
+        if (typeof stopRouteDemo === 'function') stopRouteDemo();
+      } catch (_) {}
+      if (state.imgUrl) {
+        try { URL.revokeObjectURL(state.imgUrl); } catch (_) {}
+      }
+      state.img = null;
+      state.imgUrl = null;
+      state.imgName = '';
+      state.floorplanDataUrl = '';
+      state.imgWidth = 0;
+      state.imgHeight = 0;
+      state.zoom = 1;
+      state.floorplanGrayscale = false;
+      state.gridMode = 'xfine';
+      updateFloorplanBwToggleUI();
+      updateGridButton();
+      resetDataOnly();
+      updateFileUploadDisplay();
+      updateZoomDisplay();
+      setMode('scale');
+      setupCanvas();
+      saveState();
+      showToast('図面を削除しました');
     }
 
     function setActiveRoute(routeIndex){
@@ -5948,6 +6000,7 @@ function draw() {
         statusText.textContent = '準備完了';
       }
 
+      updateFileUploadDisplay();
       updateWorkflowLocks();
 
       document.getElementById('scaleValue').textContent = state.metersPerPixel 
@@ -6821,6 +6874,7 @@ function draw() {
           state.imgHeight = img.naturalHeight;
           state.zoom = 1;
           state.floorplanGrayscale = false;
+          updateFileUploadDisplay();
           updateFloorplanBwToggleUI();
           // After loading a floorplan, default grid to extra-fine
           state.gridMode = 'xfine';
@@ -6878,6 +6932,7 @@ async function loadPDF(file) {
         
         state.zoom = 1;
         state.floorplanGrayscale = false;
+        updateFileUploadDisplay();
         updateFloorplanBwToggleUI();
         // After loading a floorplan, default grid to extra-fine
         state.gridMode = 'xfine';
@@ -7023,6 +7078,11 @@ async function loadPDF(file) {
         // allow re-selecting same file
         e.target.value = '';
       }
+    });
+
+    loadedFileDeleteBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      clearLoadedFloorplan();
     });
 
     // ★ バグ①修正：ファイルクリック機能の追加
@@ -9848,10 +9908,90 @@ measureBtn?.addEventListener('click', () => {
         });
       }
 
+      function buildReportSvgPalletMarkup(w, h, label = '') {
+        const pw = Math.max(12, w * 0.78);
+        const ph = Math.max(12, h * 0.82);
+        const x = -pw / 2;
+        const y = -ph / 2;
+        const slatW = pw / 6;
+        const labelSize = Math.max(10, Math.min(ph * 0.58, pw * 0.42));
+        const parts = [
+          `<rect x="${reportSvgNum(x)}" y="${reportSvgNum(y)}" width="${reportSvgNum(pw)}" height="${reportSvgNum(ph)}" rx="${reportSvgNum(Math.min(pw, ph) * 0.08)}" fill="#f97316" stroke="#9a3412" stroke-width="${reportSvgNum(Math.max(1.5, Math.min(pw, ph) * 0.035))}" />`
+        ];
+        for (let i = 1; i < 6; i++) {
+          const sx = x + slatW * i;
+          parts.push(`<line x1="${reportSvgNum(sx)}" y1="${reportSvgNum(y + ph * 0.08)}" x2="${reportSvgNum(sx)}" y2="${reportSvgNum(y + ph * 0.92)}" stroke="#fff7ed" stroke-width="${reportSvgNum(Math.max(1, slatW * 0.18))}" opacity="0.75" />`);
+        }
+        parts.push(`<rect x="${reportSvgNum(x + pw * 0.07)}" y="${reportSvgNum(y + ph * 0.08)}" width="${reportSvgNum(pw * 0.86)}" height="${reportSvgNum(ph * 0.84)}" fill="none" stroke="#7c2d12" stroke-width="${reportSvgNum(Math.max(1, Math.min(pw, ph) * 0.025))}" />`);
+        if (label) {
+          parts.push(`<text x="0" y="${reportSvgNum(labelSize * 0.32)}" text-anchor="middle" font-family="Arial Black, Noto Sans JP, sans-serif" font-size="${reportSvgNum(labelSize)}" font-weight="900" fill="#00e5ff" stroke="#06212a" stroke-width="${reportSvgNum(Math.max(2, labelSize * 0.12))}" paint-order="stroke fill">${reportSvgAttr(label)}</text>`);
+        }
+        return parts.join('');
+      }
+
+      function buildReportSvgAutoforkMarkup(w, h, loaded = false) {
+        const bodyW = Math.max(18, w * 0.56);
+        const bodyH = Math.max(12, h * 0.58);
+        const wheelR = Math.max(2.5, Math.min(w, h) * 0.07);
+        const forkLen = Math.max(10, w * 0.32);
+        const forkGap = Math.max(3, bodyH * 0.22);
+        const parts = [
+          `<rect x="${reportSvgNum(-bodyW / 2)}" y="${reportSvgNum(-bodyH / 2)}" width="${reportSvgNum(bodyW)}" height="${reportSvgNum(bodyH)}" rx="${reportSvgNum(bodyH * 0.08)}" fill="#334155" stroke="#0f172a" stroke-width="${reportSvgNum(Math.max(1.5, bodyH * 0.06))}" />`,
+          `<rect x="${reportSvgNum(-bodyW * 0.42)}" y="${reportSvgNum(-bodyH * 0.32)}" width="${reportSvgNum(bodyW * 0.35)}" height="${reportSvgNum(bodyH * 0.64)}" rx="${reportSvgNum(bodyH * 0.06)}" fill="#64748b" opacity="0.92" />`,
+          `<circle cx="${reportSvgNum(-bodyW * 0.33)}" cy="${reportSvgNum(-bodyH * 0.5)}" r="${reportSvgNum(wheelR)}" fill="#111827" />`,
+          `<circle cx="${reportSvgNum(-bodyW * 0.33)}" cy="${reportSvgNum(bodyH * 0.5)}" r="${reportSvgNum(wheelR)}" fill="#111827" />`,
+          `<circle cx="${reportSvgNum(bodyW * 0.34)}" cy="${reportSvgNum(-bodyH * 0.5)}" r="${reportSvgNum(wheelR)}" fill="#111827" />`,
+          `<circle cx="${reportSvgNum(bodyW * 0.34)}" cy="${reportSvgNum(bodyH * 0.5)}" r="${reportSvgNum(wheelR)}" fill="#111827" />`,
+          `<rect x="${reportSvgNum(bodyW / 2 - 1)}" y="${reportSvgNum(-forkGap - bodyH * 0.06)}" width="${reportSvgNum(forkLen)}" height="${reportSvgNum(Math.max(2, bodyH * 0.12))}" fill="#f59e0b" />`,
+          `<rect x="${reportSvgNum(bodyW / 2 - 1)}" y="${reportSvgNum(forkGap - bodyH * 0.06)}" width="${reportSvgNum(forkLen)}" height="${reportSvgNum(Math.max(2, bodyH * 0.12))}" fill="#f59e0b" />`
+        ];
+        if (loaded) {
+          parts.push(`<g transform="translate(${reportSvgNum(bodyW * 0.52)} 0)">${buildReportSvgPalletMarkup(Math.max(12, w * 0.32), Math.max(12, h * 0.82), '')}</g>`);
+        }
+        return parts.join('');
+      }
+
+      function buildReportSvgShapeStampMarkup(def, w, h) {
+        const file = String(def?.file || '').toLowerCase();
+        const sw = Math.max(2, Math.min(w, h) * 0.05);
+        if (file.includes('stamp_crossmark')) {
+          return `<g stroke="#e60012" stroke-width="${reportSvgNum(Math.max(sw * 2.6, 6))}" stroke-linecap="round"><line x1="${reportSvgNum(-w * 0.35)}" y1="${reportSvgNum(-h * 0.35)}" x2="${reportSvgNum(w * 0.35)}" y2="${reportSvgNum(h * 0.35)}" /><line x1="${reportSvgNum(w * 0.35)}" y1="${reportSvgNum(-h * 0.35)}" x2="${reportSvgNum(-w * 0.35)}" y2="${reportSvgNum(h * 0.35)}" /></g>`;
+        }
+        if (file.includes('stamp_check_mark')) {
+          return `<g><rect x="${reportSvgNum(-w / 2)}" y="${reportSvgNum(-h / 2)}" width="${reportSvgNum(w)}" height="${reportSvgNum(h)}" fill="${file.includes('_02') ? '#ffff00' : '#ff0033'}" opacity="0.95" /><path d="M ${reportSvgNum(-w * 0.36)} ${reportSvgNum(h * 0.02)} L ${reportSvgNum(-w * 0.06)} ${reportSvgNum(h * 0.32)} L ${reportSvgNum(w * 0.42)} ${reportSvgNum(-h * 0.34)}" fill="none" stroke="#000" stroke-width="${reportSvgNum(Math.max(sw * 3.2, 7))}" stroke-linecap="round" stroke-linejoin="round" /></g>`;
+        }
+        if (file.includes('stamp_circle')) {
+          return `<circle cx="0" cy="0" r="${reportSvgNum(Math.min(w, h) * 0.45)}" fill="${file.includes('_02') ? '#333333' : '#ff0033'}" stroke="#ffffff" stroke-width="${reportSvgNum(sw)}" />`;
+        }
+        if (file.includes('stamp_ellipse')) {
+          return `<ellipse cx="0" cy="0" rx="${reportSvgNum(w * 0.45)}" ry="${reportSvgNum(h * 0.42)}" fill="${file.includes('_02') ? '#333333' : '#000000'}" stroke="#ffffff" stroke-width="${reportSvgNum(sw)}" />`;
+        }
+        if (file.includes('stamp_square')) {
+          return `<rect x="${reportSvgNum(-w * 0.44)}" y="${reportSvgNum(-h * 0.44)}" width="${reportSvgNum(w * 0.88)}" height="${reportSvgNum(h * 0.88)}" fill="${file.includes('_02') ? '#333333' : '#ff0033'}" stroke="#ffffff" stroke-width="${reportSvgNum(sw)}" />`;
+        }
+        return '';
+      }
+
+      function buildReportSvgAssetMarkup(def, w, h) {
+        const file = String(def?.file || '').toLowerCase();
+        if (file.includes('pickup_pallet')) return buildReportSvgPalletMarkup(w, h, 'P');
+        if (file.includes('dropoff_pallet')) return buildReportSvgPalletMarkup(w, h, 'D');
+        if (file.includes('samepoint_pallet')) return buildReportSvgPalletMarkup(w, h, 'P/D');
+        if (file.includes('stamp_pallet_1100')) return buildReportSvgPalletMarkup(w, h, '');
+        if (file.includes('stamp_autofork_pallet')) return buildReportSvgAutoforkMarkup(w, h, true);
+        if (file.includes('stamp_autofork') || file.includes('initial_position') || file.includes('stamp_initial_pos')) return buildReportSvgAutoforkMarkup(w, h, false);
+        return buildReportSvgShapeStampMarkup(def, w, h);
+      }
+
       function addReportSvgImage(def, x, y, w, h, rotDeg = 0, flipX = false, flipY = false, extra = '') {
         if (!def?.file || !Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return;
         const p = toSvgPoint(x, y);
         const transform = `translate(${reportSvgNum(p.x)} ${reportSvgNum(p.y)}) rotate(${reportSvgNum(rotDeg)}) scale(${flipX ? -1 : 1} ${flipY ? -1 : 1})`;
+        const inlineMarkup = buildReportSvgAssetMarkup(def, w, h);
+        if (inlineMarkup) {
+          svg.push(`<g transform="${transform}">${inlineMarkup}</g>`);
+          return;
+        }
         const safeHref = reportSvgAttr('./' + def.file);
         svg.push(`<g transform="${transform}"><image href="${safeHref}" xlink:href="${safeHref}" x="${reportSvgNum(-w / 2)}" y="${reportSvgNum(-h / 2)}" width="${reportSvgNum(w)}" height="${reportSvgNum(h)}" preserveAspectRatio="xMidYMid meet" ${extra} /></g>`);
       }
@@ -11479,6 +11619,7 @@ measureBtn?.addEventListener('click', () => {
       updateMeasureUI();
       updateDirectionPreview();
       updateHistoryButtons();
+      updateFileUploadDisplay();
       setupRouteDemoSpeedControls();
       setupRouteDemoActionDelegation();
       setupRouteDemoControlButtons();
