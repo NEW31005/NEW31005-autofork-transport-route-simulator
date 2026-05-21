@@ -272,6 +272,55 @@
       margin-bottom: 12px;
     }
 
+    .help-summary-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .help-box-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--hakuou-blue);
+    }
+
+    .help-toggle-btn {
+      padding: 3px 8px;
+      border: 1px solid rgba(0, 82, 154, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--hakuou-blue);
+      font-size: 9px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .help-toggle-btn:hover {
+      background: #fff;
+    }
+
+    .help-summary-block[hidden] {
+      display: none !important;
+    }
+
+    .help-box ol {
+      font-size: 10px;
+      color: var(--gray-700);
+      padding-left: 16px;
+      margin: 0 0 8px;
+    }
+
+    .help-box li { margin-bottom: 2px; }
+
+    .help-box-desc{
+      font-size: 10px;
+      color: var(--gray-700);
+      margin-bottom: 8px;
+      line-height: 1.45;
+    }
+
     .howto-body{
       font-size: 10px;
       color: var(--gray-700);
@@ -2377,11 +2426,27 @@ body.stamp-modal-open header{ pointer-events: none; }
       </div>
       <div class="panel-body">
         <div class="help-box">
+          <div class="help-summary-head">
+            <div class="help-box-title">📖 使用方法</div>
+            <button class="help-toggle-btn" id="helpSummaryToggle" type="button">隠す</button>
+          </div>
+          <div class="help-summary-block" id="helpSummaryBlock">
+            <div class="help-box-desc">図面・写真を読み込み、縮尺を設定して搬送ルートを描くことで、総距離と概算サイクルタイムを算出できます。</div>
+            <ol>
+              <li>図面・写真をアップロード</li>
+              <li><b>縮尺</b>：2点クリック→実距離入力</li>
+              <li><b>初期位置</b>：AutoFork初期位置を設定</li>
+              <li><b>ステーション</b>：荷積み・荷下ろし地点と回数</li>
+              <li><b>ルート</b>：経由点をクリックで追加</li>
+              <li><b>積載走行</b>：ルート上で積載走行区間を設定</li>
+              <li><b>パレット認識</b>：必要に応じて認識区間を新規描画で設定</li>
+            </ol>
+          </div>
           <button class="btn btn-primary tutorial-open-btn" id="tutorialGuideBtn" type="button">動画で使い方を見る</button>
 
         <div class="accordion" id="howtoAccordion">
           <button class="accordion-header" id="howtoToggle">
-            <span>📘 使い方</span>
+            <span>📘 詳しい使い方</span>
             <span class="accordion-arrow">▼</span>
           </button>
           <div class="accordion-body">
@@ -6574,6 +6639,15 @@ function draw() {
       document.getElementById('howtoAccordion').classList.toggle('open');
     });
 
+    document.getElementById('helpSummaryToggle')?.addEventListener('click', () => {
+      const block = document.getElementById('helpSummaryBlock');
+      const btn = document.getElementById('helpSummaryToggle');
+      if (!block || !btn) return;
+      const nextHidden = !block.hidden;
+      block.hidden = nextHidden;
+      btn.textContent = nextHidden ? '表示' : '隠す';
+    });
+
     document.getElementById('paramsToggle').addEventListener('click', () => {
       document.getElementById('paramsAccordion').classList.toggle('open');
     });
@@ -9622,6 +9696,14 @@ measureBtn?.addEventListener('click', () => {
       return { count: paths.length, distance, time };
     }
 
+    function hasReportCanvasContent() {
+      return !!state.img
+        || (state.homePositions || []).length > 0
+        || (state.stations || []).length > 0
+        || (state.stamps || []).length > 0
+        || (state.textAnnotations || []).length > 0;
+    }
+
     function reportSvgNum(value, digits = 2) {
       const n = Number(value);
       if (!Number.isFinite(n)) return '0';
@@ -10077,12 +10159,12 @@ measureBtn?.addEventListener('click', () => {
       const nowStr = now.toLocaleString('ja-JP');
       const pageClass = getPdfOrientation() === 'p' ? 'portrait' : 'landscape';
       const mpp = state.metersPerPixel || 0;
-      const routes = state.routes || [];
+      const routes = Array.isArray(state.routes) ? state.routes : [];
       if (state.recognizeDrawing.length >= 2) {
         finishRecognizeDrawing();
       }
 
-      if (!routes.length) {
+      if (!routes.length && !hasReportCanvasContent()) {
         reportEl.innerHTML = `<div class="empty-state">
           <div class="empty-state-icon">📄</div>
           <div class="empty-state-text">レポート対象のルートがありません。</div>
@@ -10094,16 +10176,20 @@ measureBtn?.addEventListener('click', () => {
       const imageText = state.img ? escapeHtml(state.imgName || '読み込み済み') : 'なし';
       await waitForReportStampImagesLoaded();
 
-      const routeSections = routes.map((r, i) => {
+      const routeEntries = routes.length
+        ? routes.map((route, index) => ({ route, index, fallback: false }))
+        : [{ route: { name: '図面', points: [], loadedSegments: [], recognizePaths: [], turn180Points: [] }, index: 0, fallback: true }];
+
+      const routeSections = routeEntries.map(({ route: r, index: i, fallback }) => {
         const res = calculateRouteTime(r);
         const recognizeStats = getReportRecognizeStats(r);
 
-        const routeVisual = buildReportRouteVisualSvg(i);
+        const routeVisual = fallback ? buildReportRouteVisualSvg(-1) : buildReportRouteVisualSvg(i);
         const routeColor = routeColors[i % routeColors.length] || '#1176d4';
-        const routeTitle = getReportRouteTitle(r, i);
+        const routeTitle = fallback ? '図面' : getReportRouteTitle(r, i);
 
         return `
-          <div class="report-page ${pageClass}" data-route-index="${i}">
+          <div class="report-page ${pageClass}" data-route-index="${fallback ? 'canvas' : i}">
             <div class="report-document-header">
               <div>
                 <div class="report-document-title">AutoFork搬送ルートシミュレーションレポート</div>
