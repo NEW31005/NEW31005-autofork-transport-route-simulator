@@ -3428,6 +3428,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       homeSimpleMode: false,
       stationSimpleMode: false,
       scalePoints: [],
+      scalePointsVisible: false,
       metersPerPixel: null,
       // 📏 計測ツール（2点距離）
       measureActive: false,
@@ -4920,7 +4921,7 @@ function draw() {
       drawStampsLayer(ctx, offset, z, false);
 
       // Scale line
-      if (state.scalePoints.length > 0) {
+      if (state.scalePointsVisible && state.scalePoints.length > 0) {
         ctx.strokeStyle = '#ffc107';
         ctx.lineWidth = 3;
         ctx.setLineDash([8, 8]);
@@ -7629,6 +7630,7 @@ function getWorldPoint(e) {
       switch (state.currentMode) {
         case 'scale':
           if (state.scalePoints.length >= 2) state.scalePoints = [];
+          state.scalePointsVisible = true;
           state.scalePoints.push({ x: wp.x, y: wp.y });
           if (state.scalePoints.length === 2) {
             // ③ 2点目クリック時にモーダル表示
@@ -8295,20 +8297,26 @@ function handleStampClick(wp) {
       const realM = parseFloat(document.getElementById('realDistance').value) || 0;
       if (px > 0 && realM > 0) {
         state.metersPerPixel = realM / px;
+        state.scalePointsVisible = false;
         showToast('縮尺を設定');
         // ③ scaleStatus更新
         const scaleStatus = document.getElementById('scaleStatus');
         if (scaleStatus) scaleStatus.style.display = 'block';
+        saveState();
       }
     }
 
     // ③ 縮尺モーダルのイベント
     document.getElementById('scaleModalClose').addEventListener('click', () => {
+      state.scalePointsVisible = false;
       document.getElementById('scaleModal').classList.remove('active');
+      draw();
     });
 
     document.getElementById('scaleModalCancel').addEventListener('click', () => {
+      state.scalePointsVisible = false;
       document.getElementById('scaleModal').classList.remove('active');
+      draw();
     });
 
     document.getElementById('scaleModalOk').addEventListener('click', () => {
