@@ -2660,7 +2660,7 @@ body.stamp-modal-open header{ pointer-events: none; }
             <div class="station-placement-row">
               <div class="station-type-buttons">
                 <button type="button" class="btn" id="placeLoadingBtn" aria-pressed="true">
-                  <span class="list-icon loading" style="width:20px;height:20px;">P</span>荷済み
+                  <span class="list-icon loading" style="width:20px;height:20px;">P</span>荷積み
                 </button>
                 <button type="button" class="btn" id="placeUnloadingBtn" aria-pressed="false">
                   <span class="list-icon unloading" style="width:20px;height:20px;">D</span>荷下ろし
@@ -6622,7 +6622,7 @@ function draw() {
         state.stationPlaceType = 'loading';
         updateStationPlaceButtons();
         setMode('station');
-        showToast('P 荷済みステーションを配置します。図面をクリックして配置してください。');
+        showToast('P 荷積みステーションを配置します。図面をクリックして配置してください。');
       });
     }
     if (placeUnloadingBtn) {
