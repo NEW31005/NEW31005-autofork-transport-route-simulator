@@ -1077,6 +1077,23 @@
       color: var(--gray-800);
     }
 
+    .route-demo-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--gray-700);
+      margin-top: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .route-demo-option input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
 
     /* Route home select */
     .route-home-select {
@@ -2791,6 +2808,10 @@ body.stamp-modal-open header{ pointer-events: none; }
               <input type="range" id="routeDemoSpeedRange" min="0.5" max="5" step="0.05" value="1">
               <strong id="routeDemoSpeedValue">1.00x</strong>
             </label>
+            <label class="route-demo-option" for="routeDemoDetectionRangeCheckbox">
+              <input type="checkbox" id="routeDemoDetectionRangeCheckbox">
+              反射ポール検出範囲
+            </label>
           </div>
 
           <div class="divider"></div>
@@ -3524,6 +3545,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       },
       // ルート走行デモ（画面用）
       routeDemo: { running: false, paused: false, routeIndex: null, dist: 0, lastTs: 0, rafId: null, runId: 0, speedFactor: 1 },
+      routeDemoDetectionRange: false,
       currentMode: 'scale',
       routeSubMode: 'draw',
       segmentSelectStart: null,
@@ -3995,6 +4017,7 @@ function openStampModal(){
         stampIdCounter: state.stampIdCounter,
         stampType: state.stampType,
         reflectivePoleRangeDefault: state.reflectivePoleRangeDefault === true,
+        routeDemoDetectionRange: state.routeDemoDetectionRange === true,
         textAnnotations: state.textAnnotations,
         textIdCounter: state.textIdCounter,
         textStyle: state.textStyle,
@@ -4037,6 +4060,7 @@ function openStampModal(){
       state.hiddenRouteIndexes = [];
       state.stamps = data.stamps || [];
       state.reflectivePoleRangeDefault = data.reflectivePoleRangeDefault === true;
+      state.routeDemoDetectionRange = data.routeDemoDetectionRange === true;
       state.stamps.forEach(s => {
         getStampDef(s);
         if (typeof s.scale !== 'number') s.scale = 1;
@@ -4069,6 +4093,7 @@ function openStampModal(){
       if (_hr) _hr.value = state.homeRadiusWorld;
       updateHomeMarkerControls();
       updateStationList();
+      updateRouteDemoDetectionRangeUI();
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       draw();
@@ -7334,6 +7359,7 @@ async function loadPDF(file) {
       state.selectedStampId = null;
       state.stampIdCounter = 1;
       state.reflectivePoleRangeDefault = false;
+      state.routeDemoDetectionRange = false;
       state.textAnnotations = [];
       state.selectedTextId = null;
       state.textIdCounter = 1;
@@ -7349,6 +7375,7 @@ async function loadPDF(file) {
       updateStampButtons();
       updateStampEditUI();
       updateTextToolUI();
+      updateRouteDemoDetectionRangeUI();
       updateHomeMarkerControls();
       updateStationMarkerControls();
       history.states = [];
@@ -7368,6 +7395,7 @@ async function loadPDF(file) {
       state.selectedStampId = null;
       state.stampIdCounter = 1;
       state.reflectivePoleRangeDefault = false;
+      state.routeDemoDetectionRange = false;
       state.textAnnotations = [];
       state.selectedTextId = null;
       state.textIdCounter = 1;
@@ -7383,6 +7411,7 @@ async function loadPDF(file) {
       updateStampButtons();
       updateStampEditUI();
       updateTextToolUI();
+      updateRouteDemoDetectionRangeUI();
       updateHomeMarkerControls();
       updateStationMarkerControls();
       saveState();
@@ -7423,6 +7452,7 @@ async function loadPDF(file) {
       state.selectedStampId = null;
       state.stampIdCounter = 1;
       state.reflectivePoleRangeDefault = false;
+      state.routeDemoDetectionRange = false;
       state.textAnnotations = [];
       state.selectedTextId = null;
       state.textIdCounter = 1;
@@ -7438,6 +7468,7 @@ async function loadPDF(file) {
       updateStampButtons();
       updateStampEditUI();
       updateTextToolUI();
+      updateRouteDemoDetectionRangeUI();
       updateHomeMarkerControls();
       updateStationMarkerControls();
       saveState();
@@ -9142,6 +9173,7 @@ measureBtn?.addEventListener('click', () => {
         stampIdCounter: state.stampIdCounter,
         stampType: state.stampType,
         reflectivePoleRangeDefault: state.reflectivePoleRangeDefault === true,
+        routeDemoDetectionRange: state.routeDemoDetectionRange === true,
         textAnnotations: state.textAnnotations,
         textIdCounter: state.textIdCounter,
         textStyle: state.textStyle
@@ -9249,6 +9281,7 @@ measureBtn?.addEventListener('click', () => {
 
         state.stamps = Array.isArray(data.stamps) ? data.stamps : [];
         state.reflectivePoleRangeDefault = data.reflectivePoleRangeDefault === true;
+        state.routeDemoDetectionRange = data.routeDemoDetectionRange === true;
         state.stamps.forEach(s => {
           getStampDef(s);
           if (typeof s.scale !== 'number') s.scale = 1;
@@ -9287,6 +9320,7 @@ measureBtn?.addEventListener('click', () => {
         updateStationMarkerControls();
         updateSnapControls();
         updateTextToolUI();
+        updateRouteDemoDetectionRangeUI();
         saveState();
         draw();
         showToast('読み込みました');
@@ -11110,6 +11144,10 @@ measureBtn?.addEventListener('click', () => {
       empty: { img: createCanvasSafeImage(), ready: false, src: 'StampAssets/autofork_sprite_empty.png', wM: null, hM: null },
       loaded: { img: createCanvasSafeImage(), ready: false, src: 'StampAssets/autofork_sprite_loaded.png', wM: null, hM: null },
     };
+    const routeDemoDetectionOrigins = {
+      empty: { x: 1220, y: 491.5, w: 2398, h: 983 },
+      loaded: { x: 1280, y: 547, w: 2456, h: 1095 }
+    };
 
     function ensureDemoSpritesLoaded() {
       if (state._demoSpritesLoaded) return;
@@ -11250,6 +11288,26 @@ measureBtn?.addEventListener('click', () => {
       return demo.speedFactor;
     }
 
+    function updateRouteDemoDetectionRangeUI() {
+      const cb = document.getElementById('routeDemoDetectionRangeCheckbox');
+      if (!cb) return;
+      cb.checked = state.routeDemoDetectionRange === true;
+      cb.disabled = !!ensureRouteDemoState().recording;
+    }
+
+    function setupRouteDemoDetectionRangeControl() {
+      const cb = document.getElementById('routeDemoDetectionRangeCheckbox');
+      if (!cb || cb.dataset.bound === '1') return;
+      cb.dataset.bound = '1';
+      cb.addEventListener('change', (e) => {
+        state.routeDemoDetectionRange = !!e.target.checked;
+        saveState();
+        updateRouteDemoDetectionRangeUI();
+        draw();
+      });
+      updateRouteDemoDetectionRangeUI();
+    }
+
     function updateRouteDemoSpeedUI() {
       const factor = getRouteDemoSpeedFactor();
       const range = document.getElementById('routeDemoSpeedRange');
@@ -11269,6 +11327,7 @@ measureBtn?.addEventListener('click', () => {
         value.textContent = `${factor.toFixed(2)}x`;
         value.title = title;
       }
+      updateRouteDemoDetectionRangeUI();
     }
 
     function setupRouteDemoSpeedControls() {
@@ -11306,6 +11365,7 @@ measureBtn?.addEventListener('click', () => {
         saveBtn.disabled = !hasPlayableRoute || !routeReady || demo.recording;
         saveBtn.textContent = demo.recording ? '🎥 保存中...' : '🎥 動画保存';
       }
+      updateRouteDemoDetectionRangeUI();
     }
 
     function setupRouteDemoControlButtons() {
@@ -11628,6 +11688,37 @@ measureBtn?.addEventListener('click', () => {
       targetCtx.restore();
     }
 
+    function getRouteDemoDetectionCenterWorld(pose, loaded, wWorld, hWorld) {
+      if (!pose || !Number.isFinite(wWorld) || !Number.isFinite(hWorld)) return null;
+      const origin = loaded ? routeDemoDetectionOrigins.loaded : routeDemoDetectionOrigins.empty;
+      const localX = ((origin.x / origin.w) - 0.5) * wWorld;
+      const localY = ((origin.y / origin.h) - 0.5) * hWorld;
+      const cos = Math.cos(pose.angle);
+      const sin = Math.sin(pose.angle);
+      return {
+        x: pose.x + localX * cos - localY * sin,
+        y: pose.y + localX * sin + localY * cos
+      };
+    }
+
+    function drawRouteDemoVehicleDetectionRange(targetCtx, pose, loaded, wWorld, hWorld, offset, z) {
+      if (state.routeDemoDetectionRange !== true || !state.metersPerPixel) return;
+      const center = getRouteDemoDetectionCenterWorld(pose, loaded, wWorld, hWorld);
+      if (!center) return;
+      const radiusWorld = AUTOFORK_DETECTION_RANGE_M / state.metersPerPixel;
+      const cx = offset.x + center.x * z;
+      const cy = offset.y + center.y * z;
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(cx, cy, radiusWorld * z, 0, Math.PI * 2);
+      targetCtx.fillStyle = 'rgba(59, 130, 246, 0.16)';
+      targetCtx.fill();
+      targetCtx.strokeStyle = 'rgba(37, 99, 235, 0.72)';
+      targetCtx.lineWidth = Math.max(1.5, 2 * z);
+      targetCtx.stroke();
+      targetCtx.restore();
+    }
+
     function strokeRouteDemoPath(targetCtx, points, offset, z, color, lineWidthPx, dash = []) {
       if (!Array.isArray(points) || points.length < 2) return;
       targetCtx.save();
@@ -11836,10 +11927,14 @@ measureBtn?.addEventListener('click', () => {
       const pose = computeDemoPose(route, dist);
       if (!pose || !state.metersPerPixel) return;
       const loaded = isLoadedAt(route, pose.segIndex);
-      const w = ((loaded ? 2.456 : 2.398) / state.metersPerPixel) * z;
-      const h = ((loaded ? 1.095 : 0.983) / state.metersPerPixel) * z;
+      const wWorld = (loaded ? 2.456 : 2.398) / state.metersPerPixel;
+      const hWorld = (loaded ? 1.095 : 0.983) / state.metersPerPixel;
+      const w = wWorld * z;
+      const h = hWorld * z;
       const sx = offset.x + pose.x * z;
       const sy = offset.y + pose.y * z;
+
+      drawRouteDemoVehicleDetectionRange(targetCtx, pose, loaded, wWorld, hWorld, offset, z);
 
       targetCtx.save();
       targetCtx.translate(sx, sy);
@@ -12090,6 +12185,8 @@ measureBtn?.addEventListener('click', () => {
       const sx = offset.x + pose.x * z;
       const sy = offset.y + pose.y * z;
 
+      drawRouteDemoVehicleDetectionRange(ctx, pose, loaded, wWorld, hWorld, offset, z);
+
       ctx.save();
       ctx.translate(sx, sy);
       ctx.rotate(pose.angle);
@@ -12117,6 +12214,7 @@ measureBtn?.addEventListener('click', () => {
       updateHistoryButtons();
       updateFileUploadDisplay();
       setupRouteDemoSpeedControls();
+      setupRouteDemoDetectionRangeControl();
       setupRouteDemoActionDelegation();
       setupRouteDemoControlButtons();
 
