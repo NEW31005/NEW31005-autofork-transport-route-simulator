@@ -5008,6 +5008,7 @@ function draw() {
           ctx.textBaseline = 'middle';
           ctx.fillText(i + 1, px, py);
         });
+      }
 
       // 📏 Measure line (2点距離) - editor overlay
       if (state.measureActive || (state.measurePoints && state.measurePoints.length > 0)) {
@@ -5408,8 +5409,6 @@ function draw() {
 
       markUIDirty();
     }
-
-}
 
     function drawSegmentOverlay(route, seg, color, emoji, z, offset) {
   // 描画のみ調整（計算ロジックは一切変更しない）
