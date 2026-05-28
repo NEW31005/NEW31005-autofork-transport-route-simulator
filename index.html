@@ -2915,6 +2915,12 @@ body.stamp-modal-open header{ pointer-events: none; }
                 全反射ポール10M範囲
               </label>
             </div>
+            <div class="stamp-edit-scale" id="stampAutoForkDetectionRangeRow" style="display:none;">
+              <label for="stampAutoForkDetectionRangeCheckbox" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="stampAutoForkDetectionRangeCheckbox">
+                反射ポール検出範囲
+              </label>
+            </div>
 
           </div>
         </div>
@@ -3407,6 +3413,12 @@ body.stamp-modal-open header{ pointer-events: none; }
               全反射ポール10M範囲
             </label>
           </div>
+          <div class="stamp-edit-scale" id="stampAutoForkDetectionRangeRowModal" style="display:none;">
+            <label for="stampAutoForkDetectionRangeCheckboxModal" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="stampAutoForkDetectionRangeCheckboxModal">
+              反射ポール検出範囲
+            </label>
+          </div>
 
         </div>
       </div>
@@ -3599,6 +3611,8 @@ body.stamp-modal-open header{ pointer-events: none; }
     // Stamp Assets (v25.8)
     // ============================
     const REFLECTIVE_POLE_RANGE_M = 10;
+    const AUTOFORK_DETECTION_RANGE_M = 10;
+    const AUTOFORK_DETECTION_ORIGIN_PX = { x: 1177, y: 491.5, w: 2398, h: 983 };
     const STAMP_DEFS = {
       autofork:        { label: "AutoFork",            file: "StampAssets/stamp_autofork.png",            wM: 2.398, hM: 0.983, rotatable: true },
       autofork_loaded: { label: "AutoFork積載",        file: "StampAssets/stamp_autofork_pallet.png",     wM: 2.456, hM: 1.095, rotatable: true },
@@ -3948,6 +3962,10 @@ function openStampModal(){
     const stampReflectiveAllRangeCheckbox = document.getElementById('stampReflectiveAllRangeCheckbox');
     const stampReflectiveAllRangeRowModal = document.getElementById('stampReflectiveAllRangeRowModal');
     const stampReflectiveAllRangeCheckboxModal = document.getElementById('stampReflectiveAllRangeCheckboxModal');
+    const stampAutoForkDetectionRangeRow = document.getElementById('stampAutoForkDetectionRangeRow');
+    const stampAutoForkDetectionRangeCheckbox = document.getElementById('stampAutoForkDetectionRangeCheckbox');
+    const stampAutoForkDetectionRangeRowModal = document.getElementById('stampAutoForkDetectionRangeRowModal');
+    const stampAutoForkDetectionRangeCheckboxModal = document.getElementById('stampAutoForkDetectionRangeCheckboxModal');
 
     const stampRotationSlider = document.getElementById('stampRotationSlider');
     const stampRotationValue = document.getElementById('stampRotationValue');
@@ -4027,6 +4045,7 @@ function openStampModal(){
         if (typeof s.flipX !== 'boolean') s.flipX = false;
         if (typeof s.flipY !== 'boolean') s.flipY = false;
         normalizeReflectivePoleStamp(s);
+        normalizeAutoForkDetectionStamp(s);
       });
       state.stampIdCounter = data.stampIdCounter || (Math.max(0, ...state.stamps.map(s => s.id || 0)) + 1);
       state.stampType = data.stampType || state.stampType || 'autofork';
@@ -4948,6 +4967,58 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       });
     }
 
+    function isAutoForkDetectionStamp(stamp) {
+      return String(stamp?.type || '') === 'autofork';
+    }
+
+    function isAutoForkDetectionRangeOn(stamp) {
+      return isAutoForkDetectionStamp(stamp) && stamp.reflectivePoleDetectionRange10m === true;
+    }
+
+    function normalizeAutoForkDetectionStamp(stamp) {
+      if (!isAutoForkDetectionStamp(stamp)) return stamp;
+      stamp.reflectivePoleDetectionRange10m = stamp.reflectivePoleDetectionRange10m === true;
+      return stamp;
+    }
+
+    function getAutoForkDetectionCenterWorld(stamp, baseSize = null) {
+      if (!isAutoForkDetectionStamp(stamp)) return null;
+      const size = baseSize || getStampBaseSizeWorld(stamp);
+      if (!size) return null;
+      const origin = AUTOFORK_DETECTION_ORIGIN_PX;
+      const localX = ((origin.x / origin.w) - 0.5) * size.w;
+      const localY = ((origin.y / origin.h) - 0.5) * size.h;
+      const fx = getStampFlipX(stamp) ? -1 : 1;
+      const fy = getStampFlipY(stamp) ? -1 : 1;
+      const rot = getStampRotationDeg(stamp) * Math.PI / 180;
+      const dx = localX * fx;
+      const dy = localY * fy;
+      const cos = Math.cos(rot);
+      const sin = Math.sin(rot);
+      return {
+        x: stamp.x + dx * cos - dy * sin,
+        y: stamp.y + dx * sin + dy * cos
+      };
+    }
+
+    function drawAutoForkDetectionRange(targetCtx, stamp, offset, z, baseSize = null) {
+      if (!state.metersPerPixel || !isAutoForkDetectionRangeOn(stamp)) return;
+      const center = getAutoForkDetectionCenterWorld(stamp, baseSize);
+      if (!center) return;
+      const radiusWorld = AUTOFORK_DETECTION_RANGE_M / state.metersPerPixel;
+      const cx = offset.x + center.x * z;
+      const cy = offset.y + center.y * z;
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(cx, cy, radiusWorld * z, 0, Math.PI * 2);
+      targetCtx.fillStyle = 'rgba(59, 130, 246, 0.16)';
+      targetCtx.fill();
+      targetCtx.strokeStyle = 'rgba(37, 99, 235, 0.72)';
+      targetCtx.lineWidth = Math.max(1.5, 2 * z);
+      targetCtx.stroke();
+      targetCtx.restore();
+    }
+
     function drawReflectivePoleRange(targetCtx, stamp, offset, z) {
       if (!state.metersPerPixel || !isReflectivePoleStamp(stamp) || !isReflectivePoleRangeOn(stamp)) return;
       const radiusWorld = REFLECTIVE_POLE_RANGE_M / state.metersPerPixel;
@@ -4985,6 +5056,7 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
         const h = hImg * z;
 
         drawReflectivePoleRange(ctx, s, offset, z);
+        drawAutoForkDetectionRange(ctx, s, offset, z, baseSize);
 
         ctx.save();
         ctx.translate(cx, cy);
@@ -6027,6 +6099,7 @@ function draw() {
         const h = Math.max(18, baseSize.h * z);
         const label = def.label || 'スタンプ';
         drawReflectivePoleRange(targetCtx, stamp, offset, z);
+        drawAutoForkDetectionRange(targetCtx, stamp, offset, z, baseSize);
         targetCtx.save();
         targetCtx.translate(cx, cy);
         const rotDeg = getStampRotationDeg(stamp);
@@ -8314,8 +8387,8 @@ function getWorldPoint(e) {
           stampFlipVBtn.disabled = true;
         }
         if (stampScaleRow) stampScaleRow.style.display = 'none';
-        [stampReflectiveRangeRow, stampReflectiveRangeRowModal, stampReflectiveAllRangeRow, stampReflectiveAllRangeRowModal].forEach(row => { if (row) row.style.display = 'none'; });
-        [stampReflectiveRangeCheckbox, stampReflectiveRangeCheckboxModal, stampReflectiveAllRangeCheckbox, stampReflectiveAllRangeCheckboxModal].forEach(cb => { if (cb) cb.checked = false; });
+        [stampReflectiveRangeRow, stampReflectiveRangeRowModal, stampReflectiveAllRangeRow, stampReflectiveAllRangeRowModal, stampAutoForkDetectionRangeRow, stampAutoForkDetectionRangeRowModal].forEach(row => { if (row) row.style.display = 'none'; });
+        [stampReflectiveRangeCheckbox, stampReflectiveRangeCheckboxModal, stampReflectiveAllRangeCheckbox, stampReflectiveAllRangeCheckboxModal, stampAutoForkDetectionRangeCheckbox, stampAutoForkDetectionRangeCheckboxModal].forEach(cb => { if (cb) cb.checked = false; });
         return;
       }
 
@@ -8380,6 +8453,14 @@ function getWorldPoint(e) {
       });
       [stampReflectiveAllRangeCheckbox, stampReflectiveAllRangeCheckboxModal].forEach(cb => {
         if (cb) cb.checked = canShowRange && state.reflectivePoleRangeDefault === true;
+      });
+
+      const canShowAutoForkDetection = isAutoForkDetectionStamp(s);
+      [stampAutoForkDetectionRangeRow, stampAutoForkDetectionRangeRowModal].forEach(row => {
+        if (row) row.style.display = canShowAutoForkDetection ? '' : 'none';
+      });
+      [stampAutoForkDetectionRangeCheckbox, stampAutoForkDetectionRangeCheckboxModal].forEach(cb => {
+        if (cb) cb.checked = canShowAutoForkDetection && s.reflectivePoleDetectionRange10m === true;
       });
     }
 
@@ -8463,6 +8544,15 @@ function getWorldPoint(e) {
         updateStampEditUI();
         updateHistoryButtons();
         requestRedraw();
+      });
+    });
+
+    [stampAutoForkDetectionRangeCheckbox, stampAutoForkDetectionRangeCheckboxModal].forEach(cb => {
+      if (!cb) return;
+      cb.addEventListener('change', (e) => {
+        applyStampChange((s) => {
+          if (isAutoForkDetectionStamp(s)) s.reflectivePoleDetectionRange10m = !!e.target.checked;
+        });
       });
     });
 
@@ -8560,7 +8650,8 @@ function handleStampClick(wp) {
         flipX: false,
         flipY: false,
         range10mOverride: isReflectivePoleStampType(type) ? null : false,
-        range10m: isReflectivePoleStampType(type) ? (state.reflectivePoleRangeDefault === true) : false
+        range10m: isReflectivePoleStampType(type) ? (state.reflectivePoleRangeDefault === true) : false,
+        reflectivePoleDetectionRange10m: false
       };
       state.stamps.push(newStamp);
       state.selectedStampId = newStamp.id;
@@ -9166,6 +9257,7 @@ measureBtn?.addEventListener('click', () => {
           if (typeof s.flipX !== 'boolean') s.flipX = false;
           if (typeof s.flipY !== 'boolean') s.flipY = false;
           normalizeReflectivePoleStamp(s);
+          normalizeAutoForkDetectionStamp(s);
         });
         state.stampIdCounter = data.stampIdCounter || (Math.max(0, ...state.stamps.map(s => s.id || 0)) + 1);
         state.stampType = data.stampType || state.stampType || 'autofork';
@@ -10093,6 +10185,10 @@ measureBtn?.addEventListener('click', () => {
         const stampRadius = Math.max(size?.w || 0, size?.h || 0, 60) / 2;
         const rangeRadius = (isReflectivePoleStamp(stamp) && isReflectivePoleRangeOn(stamp) && mpp) ? (REFLECTIVE_POLE_RANGE_M / mpp) : 0;
         includeReportBoundsPoint(bounds, stamp.x, stamp.y, Math.max(stampRadius, rangeRadius) + 30);
+        if (isAutoForkDetectionRangeOn(stamp) && mpp) {
+          const detectionCenter = getAutoForkDetectionCenterWorld(stamp, size);
+          if (detectionCenter) includeReportBoundsPoint(bounds, detectionCenter.x, detectionCenter.y, AUTOFORK_DETECTION_RANGE_M / mpp + 30);
+        }
       });
       try {
         const t = route ? calculateRouteTime(route) : null;
@@ -10389,6 +10485,14 @@ measureBtn?.addEventListener('click', () => {
           const p = toSvgPoint(stamp.x, stamp.y);
           const radius = REFLECTIVE_POLE_RANGE_M / mpp;
           svg.push(`<circle cx="${reportSvgNum(p.x)}" cy="${reportSvgNum(p.y)}" r="${reportSvgNum(radius)}" fill="rgba(255,214,0,0.22)" stroke="rgba(245,158,11,0.9)" stroke-width="${reportSvgNum(Math.max(2, radius * 0.008))}" />`);
+        }
+        if (isAutoForkDetectionRangeOn(stamp) && mpp) {
+          const center = getAutoForkDetectionCenterWorld(stamp, size);
+          if (center) {
+            const p = toSvgPoint(center.x, center.y);
+            const radius = AUTOFORK_DETECTION_RANGE_M / mpp;
+            svg.push(`<circle cx="${reportSvgNum(p.x)}" cy="${reportSvgNum(p.y)}" r="${reportSvgNum(radius)}" fill="rgba(59,130,246,0.16)" stroke="rgba(37,99,235,0.72)" stroke-width="${reportSvgNum(Math.max(2, radius * 0.008))}" />`);
+          }
         }
         addReportSvgImage(def, stamp.x, stamp.y, size.w, size.h, getStampRotationDeg(stamp), getStampFlipX(stamp), getStampFlipY(stamp));
       });
