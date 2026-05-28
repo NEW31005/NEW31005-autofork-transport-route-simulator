@@ -917,42 +917,47 @@
     .list-delete:hover { background: var(--danger-light); color: var(--danger); }
 
     .list-solo {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       border: 1px solid var(--gray-300);
       background: #fff;
-      color: var(--gray-600);
+      color: #212529;
       cursor: pointer;
       border-radius: 8px;
-      font-size: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      padding: 0;
     }
 
     .list-solo:hover {
-      background: var(--hakuou-blue-pale);
-      border-color: var(--hakuou-blue);
-      color: var(--hakuou-blue);
+      background: #f8fafc;
+      border-color: #111827;
+      color: #111827;
     }
 
     .list-solo.active {
-      background: var(--hakuou-blue);
-      border-color: var(--hakuou-blue);
-      color: #fff;
+      background: #f3f4f6;
+      border-color: #111827;
+      color: #111827;
     }
 
     .list-solo.hide-mode {
-      background: #fff4e8;
-      border-color: #fd7e14;
-      color: #c45100;
-      font-weight: 800;
+      background: #fff;
+      border-color: #111827;
+      color: #111827;
     }
 
     .list-solo.off-mode {
-      color: var(--gray-500);
-      font-weight: 700;
+      color: var(--gray-600);
+    }
+
+    .route-visibility-icon {
+      width: 20px;
+      height: 20px;
+      display: block;
+      pointer-events: none;
     }
 
     .list-play,
@@ -4269,6 +4274,34 @@ function openStampModal(){
       return 'off';
     }
 
+    function getRouteVisibilityIcon(mode) {
+      if (mode === 'hidden') {
+        return `
+          <svg class="route-visibility-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9.4 9.4a3.7 3.7 0 0 0 5.2 5.2" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+            <path d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+          </svg>
+        `;
+      }
+      if (mode === 'solo') {
+        return `
+          <svg class="route-visibility-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M2.3 12s3.8-6.2 9.7-6.2 9.7 6.2 9.7 6.2-3.8 6.2-9.7 6.2S2.3 12 2.3 12Z" fill="#1f2937"/>
+            <circle cx="12" cy="12" r="3.6" fill="#fff"/>
+            <circle cx="12" cy="12" r="1.8" fill="#1f2937"/>
+          </svg>
+        `;
+      }
+      return `
+        <svg class="route-visibility-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M2.5 12s3.7-6.1 9.5-6.1 9.5 6.1 9.5 6.1-3.7 6.1-9.5 6.1S2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.1"/>
+          <circle cx="12" cy="12" r="1.7" fill="currentColor"/>
+        </svg>
+      `;
+    }
+
     function isRouteVisible(ri) {
       const solo = getSoloRouteIndex();
       if (solo !== null) return solo === ri;
@@ -6357,7 +6390,7 @@ function draw() {
           `<option value="${escapeHtml(h.id)}" ${r.homeId === h.id ? 'selected' : ''}>${escapeHtml(formatHomeIdLabel(h.id))}</option>`
         ).join('');
         const visibilityMode = getRouteVisibilityMode(i);
-        const visibilityText = visibilityMode === 'hidden' ? '非' : visibilityMode === 'solo' ? '単' : '全';
+        const visibilityIcon = getRouteVisibilityIcon(visibilityMode);
         const visibilityTitle = visibilityMode === 'hidden'
           ? 'このルートのみ非表示。クリックでこのルートのみ表示'
           : visibilityMode === 'solo'
@@ -6371,7 +6404,7 @@ function draw() {
               <div class="list-sub">${r.points.length}点 / ${result.distance.toFixed(1)}m</div>
             </div>
             ${state.homePositions.length > 1 ? `<select class="route-home-select" data-index="${i}" title="接続初期位置">${homeOptions}</select>` : ''}
-            <button class="list-solo ${visibilityMode === 'solo' ? 'active' : ''} ${visibilityMode === 'hidden' ? 'hide-mode' : ''} ${visibilityMode === 'off' ? 'off-mode' : ''}" data-index="${i}" title="${visibilityTitle}" aria-label="${visibilityTitle}">${visibilityText}</button>
+            <button class="list-solo ${visibilityMode === 'solo' ? 'active' : ''} ${visibilityMode === 'hidden' ? 'hide-mode' : ''} ${visibilityMode === 'off' ? 'off-mode' : ''}" data-index="${i}" title="${visibilityTitle}" aria-label="${visibilityTitle}">${visibilityIcon}</button>
             <button class="list-delete" data-index="${i}" title="削除">×</button>
           </div>
         `;
