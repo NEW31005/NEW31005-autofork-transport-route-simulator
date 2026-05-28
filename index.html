@@ -3486,6 +3486,10 @@ body.stamp-modal-open header{ pointer-events: none; }
       return state.homePositions.find(h => h.id === id) || null;
     }
 
+    function formatHomeIdLabel(id) {
+      return String(id || '').toUpperCase();
+    }
+
     function normalizeHomeRotDeg(value) {
       const n = Number(value);
       const snapped = Number.isFinite(n) ? Math.round(n / 45) * 45 : 0;
@@ -6298,7 +6302,7 @@ function draw() {
       list.innerHTML = state.routes.map((r, i) => {
         const result = calculateRouteTime(r);
         const homeOptions = state.homePositions.map(h =>
-          `<option value="${escapeHtml(h.id)}" ${r.homeId === h.id ? 'selected' : ''}>${escapeHtml(h.id)}</option>`
+          `<option value="${escapeHtml(h.id)}" ${r.homeId === h.id ? 'selected' : ''}>${escapeHtml(formatHomeIdLabel(h.id))}</option>`
         ).join('');
         const isSolo = soloRouteIndex === i;
         return `
