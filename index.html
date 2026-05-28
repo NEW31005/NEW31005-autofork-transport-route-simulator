@@ -2833,6 +2833,7 @@ body.stamp-modal-open header{ pointer-events: none; }
             <select class="form-input" id="stampTypeSelect">
               <option value="autofork">AutoFork</option>
               <option value="autofork_loaded">AutoFork積載</option>
+              <option value="reflective_pole">反射ポール</option>
               <option value="pallet">パレット</option>
               <option value="initial_position">初期位置</option>
               <option value="arrow_01">矢印 01</option>
@@ -2900,6 +2901,13 @@ body.stamp-modal-open header{ pointer-events: none; }
               <label>サイズ</label>
               <input type="range" id="stampScaleRange" min="0.5" max="3" step="0.1" value="1" style="flex:1;">
               <input type="number" id="stampScaleNumber" min="0.5" max="3" step="0.1" value="1">
+            </div>
+
+            <div class="stamp-edit-scale" id="stampReflectiveRangeRow" style="display:none;">
+              <label for="stampReflectiveRangeCheckbox" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="stampReflectiveRangeCheckbox">
+                10M範囲
+              </label>
             </div>
 
           </div>
@@ -3381,6 +3389,13 @@ body.stamp-modal-open header{ pointer-events: none; }
             <input type="number" id="stampScaleNumberModal" min="0.5" max="3" step="0.1" value="1">
           </div>
 
+          <div class="stamp-edit-scale" id="stampReflectiveRangeRowModal" style="display:none;">
+            <label for="stampReflectiveRangeCheckboxModal" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="stampReflectiveRangeCheckboxModal">
+              10M範囲
+            </label>
+          </div>
+
         </div>
       </div>
 
@@ -3570,9 +3585,11 @@ body.stamp-modal-open header{ pointer-events: none; }
     // ============================
     // Stamp Assets (v25.8)
     // ============================
+    const REFLECTIVE_POLE_RANGE_M = 10;
     const STAMP_DEFS = {
       autofork:        { label: "AutoFork",            file: "StampAssets/stamp_autofork.png",            wM: 2.398, hM: 0.983, rotatable: true },
       autofork_loaded: { label: "AutoFork積載",        file: "StampAssets/stamp_autofork_pallet.png",     wM: 2.456, hM: 1.095, rotatable: true },
+      reflective_pole: { label: "反射ポール",          file: "StampAssets/stamp_reflectivepoler.png",     wM: 0.8, hM: 0.8, rotatable: false, fixedScale: true },
       pallet:          { label: "パレット",              file: "StampAssets/stamp_pallet_1100.png",         wM: 1.1, hM: 1.1, rotatable: true },
       initial_position: { label: "初期位置",            file: "StampAssets/stamp_initial_pos_horizontal.png", wM: 1.283, hM: 2.698, rotatable: true },
       arrow_01:        { label: "矢印 01",              file: "StampAssets/stamp_arrow_01.png",            worldW: 533, worldH: 431, rotatable: true, defaultScale: 0.1, scaleMin: 0.05, scaleMax: 0.4, scaleStep: 0.01 },
@@ -3910,6 +3927,10 @@ function openStampModal(){
     const stampScaleRow = document.getElementById('stampScaleRow');
     const stampScaleRange = document.getElementById('stampScaleRange');
     const stampScaleNumber = document.getElementById('stampScaleNumber');
+    const stampReflectiveRangeRow = document.getElementById('stampReflectiveRangeRow');
+    const stampReflectiveRangeCheckbox = document.getElementById('stampReflectiveRangeCheckbox');
+    const stampReflectiveRangeRowModal = document.getElementById('stampReflectiveRangeRowModal');
+    const stampReflectiveRangeCheckboxModal = document.getElementById('stampReflectiveRangeCheckboxModal');
 
     const stampRotationSlider = document.getElementById('stampRotationSlider');
     const stampRotationValue = document.getElementById('stampRotationValue');
@@ -3986,6 +4007,7 @@ function openStampModal(){
         if (typeof s.rot !== 'number') s.rot = 0;
         if (typeof s.flipX !== 'boolean') s.flipX = false;
         if (typeof s.flipY !== 'boolean') s.flipY = false;
+        if (s.type === 'reflective_pole' && typeof s.range10m !== 'boolean') s.range10m = false;
       });
       state.stampIdCounter = data.stampIdCounter || (Math.max(0, ...state.stamps.map(s => s.id || 0)) + 1);
       state.stampType = data.stampType || state.stampType || 'autofork';
@@ -4867,6 +4889,30 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       };
     }
 
+    function isReflectivePoleStampType(type) {
+      return String(type || '') === 'reflective_pole';
+    }
+
+    function isReflectivePoleStamp(stamp) {
+      return isReflectivePoleStampType(stamp?.type);
+    }
+
+    function drawReflectivePoleRange(targetCtx, stamp, offset, z) {
+      if (!state.metersPerPixel || !isReflectivePoleStamp(stamp) || stamp.range10m !== true) return;
+      const radiusWorld = REFLECTIVE_POLE_RANGE_M / state.metersPerPixel;
+      const cx = offset.x + stamp.x * z;
+      const cy = offset.y + stamp.y * z;
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(cx, cy, radiusWorld * z, 0, Math.PI * 2);
+      targetCtx.fillStyle = 'rgba(255, 214, 0, 0.22)';
+      targetCtx.fill();
+      targetCtx.strokeStyle = 'rgba(245, 158, 11, 0.9)';
+      targetCtx.lineWidth = Math.max(1.5, 2 * z);
+      targetCtx.stroke();
+      targetCtx.restore();
+    }
+
     function drawStampsLayer(ctx, offset, z, forReport = false) {
       if (!state.metersPerPixel) return;
       if (!state.stamps || state.stamps.length === 0) return;
@@ -4887,13 +4933,15 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
         const w = wImg * z;
         const h = hImg * z;
 
+        drawReflectivePoleRange(ctx, s, offset, z);
+
         ctx.save();
         ctx.translate(cx, cy);
-        const rotDeg = normalizeRot(s.rot || 0);
+        const rotDeg = getStampRotationDeg(s);
         const rot = rotDeg * Math.PI / 180;
         if (rot) ctx.rotate(rot);
-        const fx = (s.flipX ? -1 : 1);
-        const fy = (s.flipY ? -1 : 1);
+        const fx = (getStampFlipX(s) ? -1 : 1);
+        const fy = (getStampFlipY(s) ? -1 : 1);
         ctx.scale(fx, fy);
                 // Keep original aspect ratio (contain) to avoid squashed icons
         const iw = img.naturalWidth || img.width;
@@ -5927,11 +5975,12 @@ function draw() {
         const w = Math.max(18, baseSize.w * z);
         const h = Math.max(18, baseSize.h * z);
         const label = def.label || 'スタンプ';
+        drawReflectivePoleRange(targetCtx, stamp, offset, z);
         targetCtx.save();
         targetCtx.translate(cx, cy);
-        const rotDeg = normalizeRot(stamp.rot || 0);
+        const rotDeg = getStampRotationDeg(stamp);
         if (rotDeg) targetCtx.rotate(rotDeg * Math.PI / 180);
-        targetCtx.scale(stamp.flipX ? -1 : 1, stamp.flipY ? -1 : 1);
+        targetCtx.scale(getStampFlipX(stamp) ? -1 : 1, getStampFlipY(stamp) ? -1 : 1);
         targetCtx.fillStyle = 'rgba(17, 118, 212, 0.08)';
         targetCtx.strokeStyle = '#1176d4';
         targetCtx.lineWidth = 2;
@@ -8136,7 +8185,8 @@ function getWorldPoint(e) {
 
     function isStampScalable(stamp) {
       if (!stamp) return false;
-      return !(isAutoForkStampType(stamp.type) || stamp.type === 'pallet');
+      const def = getStampDef(stamp);
+      return !(isAutoForkStampType(stamp.type) || stamp.type === 'pallet' || def?.fixedScale === true);
     }
 
     function isWideScaleStamp(stamp) {
@@ -8172,6 +8222,19 @@ function getWorldPoint(e) {
       return (Math.round(d / 90) * 90) % 360;
     }
 
+    function getStampRotationDeg(stamp) {
+      const def = getStampDef(stamp);
+      return def?.rotatable ? normalizeRot(stamp?.rot || 0) : 0;
+    }
+
+    function getStampFlipX(stamp) {
+      return isStampFlippable(stamp) && !!stamp?.flipX;
+    }
+
+    function getStampFlipY(stamp) {
+      return isStampFlippable(stamp) && !!stamp?.flipY;
+    }
+
     function updateStampEditUI() {
       const s = getSelectedStamp();
       if (!stampEditCard) return;
@@ -8197,6 +8260,8 @@ function getWorldPoint(e) {
           stampFlipVBtn.disabled = true;
         }
         if (stampScaleRow) stampScaleRow.style.display = 'none';
+        [stampReflectiveRangeRow, stampReflectiveRangeRowModal].forEach(row => { if (row) row.style.display = 'none'; });
+        [stampReflectiveRangeCheckbox, stampReflectiveRangeCheckboxModal].forEach(cb => { if (cb) cb.checked = false; });
         return;
       }
 
@@ -8248,6 +8313,14 @@ function getWorldPoint(e) {
         if (stampScaleRange) stampScaleRange.value = String(sc);
         if (stampScaleNumber) stampScaleNumber.value = String(sc);
       }
+
+      const canShowRange = isReflectivePoleStamp(s);
+      [stampReflectiveRangeRow, stampReflectiveRangeRowModal].forEach(row => {
+        if (row) row.style.display = canShowRange ? '' : 'none';
+      });
+      [stampReflectiveRangeCheckbox, stampReflectiveRangeCheckboxModal].forEach(cb => {
+        if (cb) cb.checked = canShowRange && s.range10m === true;
+      });
     }
 
     function applyStampChange(mutatorFn) {
@@ -8315,6 +8388,13 @@ function getWorldPoint(e) {
       });
     }
 
+    [stampReflectiveRangeCheckbox, stampReflectiveRangeCheckboxModal].forEach(cb => {
+      if (!cb) return;
+      cb.addEventListener('change', (e) => {
+        applyStampChange((s) => { s.range10m = !!e.target.checked; });
+      });
+    });
+
     if (stampRotationSlider) {
       stampRotationSlider.addEventListener('input', (e) => {
         const rot = normalizeRot(parseInt(e.target.value) || 0);
@@ -8352,7 +8432,7 @@ function getWorldPoint(e) {
       if (!baseSize) return null;
       const baseW = baseSize.w;
       const baseH = baseSize.h;
-      const rot = normalizeRot(stamp.rot || 0);
+      const rot = getStampRotationDeg(stamp);
       return {
         w: (rot === 90 || rot === 270) ? baseH : baseW,
         h: (rot === 90 || rot === 270) ? baseW : baseH
@@ -8407,7 +8487,8 @@ function handleStampClick(wp) {
         rot: 0,
         scale: typeof def.defaultScale === 'number' ? def.defaultScale : 1,
         flipX: false,
-        flipY: false
+        flipY: false,
+        range10m: false
       };
       state.stamps.push(newStamp);
       state.selectedStampId = newStamp.id;
@@ -9010,6 +9091,7 @@ measureBtn?.addEventListener('click', () => {
           if (typeof s.rot !== 'number') s.rot = 0;
           if (typeof s.flipX !== 'boolean') s.flipX = false;
           if (typeof s.flipY !== 'boolean') s.flipY = false;
+          if (s.type === 'reflective_pole' && typeof s.range10m !== 'boolean') s.range10m = false;
         });
         state.stampIdCounter = data.stampIdCounter || (Math.max(0, ...state.stamps.map(s => s.id || 0)) + 1);
         state.stampType = data.stampType || state.stampType || 'autofork';
@@ -9934,7 +10016,9 @@ measureBtn?.addEventListener('click', () => {
       });
       (state.stamps || []).forEach(stamp => {
         const size = getStampBaseSizeWorld(stamp);
-        includeReportBoundsPoint(bounds, stamp.x, stamp.y, Math.max(size?.w || 0, size?.h || 0, 60) / 2 + 30);
+        const stampRadius = Math.max(size?.w || 0, size?.h || 0, 60) / 2;
+        const rangeRadius = (isReflectivePoleStamp(stamp) && stamp.range10m === true && mpp) ? (REFLECTIVE_POLE_RANGE_M / mpp) : 0;
+        includeReportBoundsPoint(bounds, stamp.x, stamp.y, Math.max(stampRadius, rangeRadius) + 30);
       });
       try {
         const t = route ? calculateRouteTime(route) : null;
@@ -10176,6 +10260,11 @@ measureBtn?.addEventListener('click', () => {
       function buildReportSvgShapeStampMarkup(def, w, h) {
         const file = String(def?.file || '').toLowerCase();
         const sw = Math.max(2, Math.min(w, h) * 0.05);
+        if (file.includes('stamp_reflectivepoler')) {
+          const r = Math.min(w, h) * 0.42;
+          const ringW = Math.max(sw * 2.4, Math.min(w, h) * 0.14);
+          return `<g><circle cx="0" cy="0" r="${reportSvgNum(r)}" fill="rgba(148,138,138,0.62)" stroke="#0b4fd6" stroke-width="${reportSvgNum(ringW)}" /><circle cx="${reportSvgNum(-r * 0.28)}" cy="${reportSvgNum(-r * 0.28)}" r="${reportSvgNum(r * 0.18)}" fill="#69d7ff" opacity="0.75" /></g>`;
+        }
         if (file.includes('stamp_crossmark')) {
           return `<g stroke="#e60012" stroke-width="${reportSvgNum(Math.max(sw * 2.6, 6))}" stroke-linecap="round"><line x1="${reportSvgNum(-w * 0.35)}" y1="${reportSvgNum(-h * 0.35)}" x2="${reportSvgNum(w * 0.35)}" y2="${reportSvgNum(h * 0.35)}" /><line x1="${reportSvgNum(w * 0.35)}" y1="${reportSvgNum(-h * 0.35)}" x2="${reportSvgNum(-w * 0.35)}" y2="${reportSvgNum(h * 0.35)}" /></g>`;
         }
@@ -10222,7 +10311,12 @@ measureBtn?.addEventListener('click', () => {
         const def = getStampDef(stamp);
         const size = getStampBaseSizeWorld(stamp);
         if (!def || !size) return;
-        addReportSvgImage(def, stamp.x, stamp.y, size.w, size.h, normalizeRot(stamp.rot || 0), !!stamp.flipX, !!stamp.flipY);
+        if (isReflectivePoleStamp(stamp) && stamp.range10m === true && mpp) {
+          const p = toSvgPoint(stamp.x, stamp.y);
+          const radius = REFLECTIVE_POLE_RANGE_M / mpp;
+          svg.push(`<circle cx="${reportSvgNum(p.x)}" cy="${reportSvgNum(p.y)}" r="${reportSvgNum(radius)}" fill="rgba(255,214,0,0.22)" stroke="rgba(245,158,11,0.9)" stroke-width="${reportSvgNum(Math.max(2, radius * 0.008))}" />`);
+        }
+        addReportSvgImage(def, stamp.x, stamp.y, size.w, size.h, getStampRotationDeg(stamp), getStampFlipX(stamp), getStampFlipY(stamp));
       });
 
       (state.homePositions || []).forEach(home => {
