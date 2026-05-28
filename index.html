@@ -1096,6 +1096,23 @@
 
 
     /* Route home select */
+    .route-home-control {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      margin-left: 4px;
+      flex-shrink: 0;
+    }
+
+    .route-home-label {
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 800;
+      color: var(--gray-500);
+      white-space: nowrap;
+    }
+
     .route-home-select {
       padding: 2px 4px;
       font-size: 10px;
@@ -1104,6 +1121,10 @@
       background: var(--white);
       cursor: pointer;
       margin-left: 4px;
+    }
+
+    .route-home-control .route-home-select {
+      margin-left: 0;
     }
 
     .route-home-select:focus {
@@ -6633,7 +6654,7 @@ function draw() {
               <div class="list-name">${escapeHtml(r.name)}</div>
               <div class="list-sub">${r.points.length}点 / ${result.distance.toFixed(1)}m</div>
             </div>
-            ${state.homePositions.length > 1 ? `<select class="route-home-select" data-index="${i}" title="接続初期位置">${homeOptions}</select>` : ''}
+            ${state.homePositions.length > 1 ? `<div class="route-home-control"><div class="route-home-label">初期位置接続先</div><select class="route-home-select" data-index="${i}" title="初期位置接続先">${homeOptions}</select></div>` : ''}
             <button class="list-solo ${visibilityMode === 'solo' ? 'active' : ''} ${visibilityMode === 'hidden' ? 'hide-mode' : ''} ${visibilityMode === 'off' ? 'off-mode' : ''}" data-index="${i}" title="${visibilityTitle}" aria-label="${visibilityTitle}">${visibilityIcon}</button>
             <button class="list-delete" data-index="${i}" title="削除">×</button>
           </div>
