@@ -943,6 +943,18 @@
       color: #fff;
     }
 
+    .list-solo.hide-mode {
+      background: #fff4e8;
+      border-color: #fd7e14;
+      color: #c45100;
+      font-weight: 800;
+    }
+
+    .list-solo.off-mode {
+      color: var(--gray-500);
+      font-weight: 700;
+    }
+
     .list-play,
     .list-pause,
     .list-stop {
@@ -3444,6 +3456,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       routes: [],
       activeRouteIndex: 0,
       soloRouteIndex: null,
+      hiddenRouteIndex: null,
       stamps: [],
       selectedStampId: null,
       stampType: 'autofork',
@@ -3959,6 +3972,7 @@ function openStampModal(){
       });
       state.activeRouteIndex = data.activeRouteIndex || 0;
       state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
       state.stamps = data.stamps || [];
       state.stamps.forEach(s => {
         getStampDef(s);
@@ -4238,19 +4252,59 @@ function openStampModal(){
         : null;
     }
 
-    function isRouteVisible(ri) {
-      const solo = getSoloRouteIndex();
-      return solo === null || solo === ri;
+    function getHiddenRouteIndex() {
+      return Number.isInteger(state.hiddenRouteIndex) && state.routes[state.hiddenRouteIndex]
+        ? state.hiddenRouteIndex
+        : null;
     }
 
-    function toggleSoloRoute(routeIndex) {
+    function clearRouteVisibilityFilter() {
+      state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
+    }
+
+    function getRouteVisibilityMode(routeIndex) {
+      if (getHiddenRouteIndex() === routeIndex) return 'hidden';
+      if (getSoloRouteIndex() === routeIndex) return 'solo';
+      return 'off';
+    }
+
+    function isRouteVisible(ri) {
+      const solo = getSoloRouteIndex();
+      if (solo !== null) return solo === ri;
+      const hidden = getHiddenRouteIndex();
+      return hidden === null || hidden !== ri;
+    }
+
+    function cycleRouteVisibility(routeIndex) {
       if (!state.routes[routeIndex]) return;
-      state.soloRouteIndex = getSoloRouteIndex() === routeIndex ? null : routeIndex;
+      const mode = getRouteVisibilityMode(routeIndex);
+      clearRouteVisibilityFilter();
+      let message = '表示切替をオフにしました';
+      if (mode === 'off') {
+        state.hiddenRouteIndex = routeIndex;
+        message = `${state.routes[routeIndex].name}のみ非表示`;
+      } else if (mode === 'hidden') {
+        state.soloRouteIndex = routeIndex;
+        message = `${state.routes[routeIndex].name}のみ表示`;
+      }
       setActiveRoute(routeIndex);
       state.segmentSelectStart = null;
       updateRouteList();
       requestRedraw();
-      showToast(state.soloRouteIndex === null ? '全ルートを表示' : `${state.routes[routeIndex].name}のみ表示`);
+      showToast(message);
+    }
+
+    function shiftRouteVisibilityAfterDelete(deletedIndex) {
+      ['soloRouteIndex', 'hiddenRouteIndex'].forEach((key) => {
+        const index = state[key];
+        if (!Number.isInteger(index)) return;
+        if (index === deletedIndex) {
+          state[key] = null;
+        } else if (index > deletedIndex) {
+          state[key] = index - 1;
+        }
+      });
     }
 
     function invalidateRouteDemoCache(route) {
@@ -6292,19 +6346,24 @@ function draw() {
       if (!list) return;
 
       if (!state.routes.length) {
-        state.soloRouteIndex = null;
+        clearRouteVisibilityFilter();
         list.innerHTML = '<div class="muted">ルートがありません</div>';
         updateRouteDemoControlUI();
         return;
       }
 
-      const soloRouteIndex = getSoloRouteIndex();
       list.innerHTML = state.routes.map((r, i) => {
         const result = calculateRouteTime(r);
         const homeOptions = state.homePositions.map(h =>
           `<option value="${escapeHtml(h.id)}" ${r.homeId === h.id ? 'selected' : ''}>${escapeHtml(formatHomeIdLabel(h.id))}</option>`
         ).join('');
-        const isSolo = soloRouteIndex === i;
+        const visibilityMode = getRouteVisibilityMode(i);
+        const visibilityText = visibilityMode === 'hidden' ? '非' : visibilityMode === 'solo' ? '単' : '全';
+        const visibilityTitle = visibilityMode === 'hidden'
+          ? 'このルートのみ非表示。クリックでこのルートのみ表示'
+          : visibilityMode === 'solo'
+            ? 'このルートのみ表示。クリックでオフ'
+            : '表示切替：オフ（全ルート表示）。クリックでこのルートのみ非表示';
         return `
           <div class="list-item ${i === state.activeRouteIndex ? 'active' : ''}" data-index="${i}">
             <div class="route-color" style="background:${routeColors[i % routeColors.length]}"></div>
@@ -6313,7 +6372,7 @@ function draw() {
               <div class="list-sub">${r.points.length}点 / ${result.distance.toFixed(1)}m</div>
             </div>
             ${state.homePositions.length > 1 ? `<select class="route-home-select" data-index="${i}" title="接続初期位置">${homeOptions}</select>` : ''}
-            <button class="list-solo ${isSolo ? 'active' : ''}" data-index="${i}" title="${isSolo ? '全ルート表示に戻す' : 'このルートのみ表示'}" aria-pressed="${isSolo ? 'true' : 'false'}">👁</button>
+            <button class="list-solo ${visibilityMode === 'solo' ? 'active' : ''} ${visibilityMode === 'hidden' ? 'hide-mode' : ''} ${visibilityMode === 'off' ? 'off-mode' : ''}" data-index="${i}" title="${visibilityTitle}" aria-label="${visibilityTitle}">${visibilityText}</button>
             <button class="list-delete" data-index="${i}" title="削除">×</button>
           </div>
         `;
@@ -6338,13 +6397,7 @@ function draw() {
           if (actionButton && actionButton.classList.contains('list-delete')) {
             if (confirm(`ルート「${state.routes[idx].name}」を削除しますか？`)) {
               state.routes.splice(idx, 1);
-              if (Number.isInteger(state.soloRouteIndex)) {
-                if (state.soloRouteIndex === idx) {
-                  state.soloRouteIndex = null;
-                } else if (state.soloRouteIndex > idx) {
-                  state.soloRouteIndex--;
-                }
-              }
+              shiftRouteVisibilityAfterDelete(idx);
               if (state.activeRouteIndex >= state.routes.length) {
                 state.activeRouteIndex = Math.max(0, state.routes.length - 1);
               }
@@ -6357,7 +6410,7 @@ function draw() {
           }
 
           if (actionButton && actionButton.classList.contains('list-solo')) {
-            toggleSoloRoute(idx);
+            cycleRouteVisibility(idx);
             e.stopPropagation();
             return;
           }
@@ -6381,7 +6434,10 @@ function draw() {
           }
 
           state.activeRouteIndex = idx;
-          if (getSoloRouteIndex() !== null) state.soloRouteIndex = idx;
+          if (getSoloRouteIndex() !== null) {
+            state.soloRouteIndex = idx;
+            state.hiddenRouteIndex = null;
+          }
           state.segmentSelectStart = null;
           saveState();
           updateLayerToggleUI();
@@ -7047,6 +7103,7 @@ async function loadPDF(file) {
       state.routes = [];
       state.activeRouteIndex = 0;
       state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       state.currentMode = 'scale';
@@ -7079,6 +7136,7 @@ async function loadPDF(file) {
       state.routes = [];
       state.activeRouteIndex = 0;
       state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       state.currentMode = state.metersPerPixel ? 'home' : 'scale';
@@ -7100,6 +7158,7 @@ async function loadPDF(file) {
       state.routes = [];
       state.activeRouteIndex = 0;
       state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       state.routeSubMode = 'draw';
@@ -7131,6 +7190,7 @@ async function loadPDF(file) {
       state.routes = [];
       state.activeRouteIndex = 0;
       state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       state.currentMode = 'scale';
@@ -7715,6 +7775,7 @@ function getWorldPoint(e) {
         state.routes.push({ name: 'ルート1', points: [], loadedSegments: [], recognizePaths: [], turn180Points: [], homeId: defaultHomeId });
         state.activeRouteIndex = 0;
         state.soloRouteIndex = null;
+        state.hiddenRouteIndex = null;
       }
       const route = state.routes[state.activeRouteIndex];
       if (!route.loadedSegments) route.loadedSegments = [];
@@ -8639,6 +8700,7 @@ measureBtn?.addEventListener('click', () => {
       state.routes.push({ name: `ルート${num}`, points: [], loadedSegments: [], recognizePaths: [], turn180Points: [], homeId: defaultHomeId });
       state.activeRouteIndex = state.routes.length - 1;
       state.soloRouteIndex = null;
+      state.hiddenRouteIndex = null;
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       saveState();
@@ -8900,6 +8962,7 @@ measureBtn?.addEventListener('click', () => {
           Math.max(0, state.routes.length - 1)
         );
         state.soloRouteIndex = null;
+        state.hiddenRouteIndex = null;
         state.segmentSelectStart = null;
         state.recognizeDrawing = [];
         state.zoom = 1;
