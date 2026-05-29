@@ -1331,6 +1331,36 @@
       color: #fff;
     }
 
+    .crop-corner-icon {
+      width: 22px;
+      height: 22px;
+      position: relative;
+      display: block;
+      color: currentColor;
+    }
+
+    .crop-corner-icon::before,
+    .crop-corner-icon::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-color: currentColor;
+      border-style: solid;
+    }
+
+    .crop-corner-icon::before {
+      left: 2px;
+      top: 2px;
+      border-width: 4px 0 0 4px;
+    }
+
+    .crop-corner-icon::after {
+      right: 2px;
+      bottom: 2px;
+      border-width: 0 4px 4px 0;
+    }
+
     .canvas-ctrl-btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
@@ -3137,6 +3167,7 @@ body.stamp-modal-open header{ pointer-events: none; }
 <button class="canvas-ctrl-btn direction-arrow-toggle active" id="directionArrowToggleBtn" title="進行方向矢印：表示" aria-pressed="true">↑</button>
 <button class="canvas-ctrl-btn floorplan-bw-toggle" id="floorplanBwToggleBtn" title="図面表示：カラー" aria-pressed="false">◐</button>
 <button class="canvas-ctrl-btn" id="gridBtn" title="グリッド：なし">▦</button>
+<button class="canvas-ctrl-btn" id="cropBtn" title="トリミング：範囲指定" aria-pressed="false"><span class="crop-corner-icon" aria-hidden="true"></span></button>
         <div class="ctrl-divider"></div>
         <button class="canvas-ctrl-btn" id="globalUndoBtn" title="戻る">↩</button>
         <button class="canvas-ctrl-btn" id="globalRedoBtn" title="やり直し">↪</button>
@@ -3592,6 +3623,8 @@ body.stamp-modal-open header{ pointer-events: none; }
       imgHeight: 0,
       zoom: 1,
       gridMode: 'xfine',
+      cropMode: false,
+      cropSelection: null,
       floorplanGrayscale: false,
       showDirectionArrows: true,
       snapEnabled: true,
@@ -3839,6 +3872,7 @@ function getStampDef(stampOrType) {
     const layerToggleBtn = document.getElementById('layerToggleBtn');
     const directionArrowToggleBtn = document.getElementById('directionArrowToggleBtn');
     const floorplanBwToggleBtn = document.getElementById('floorplanBwToggleBtn');
+    const cropBtn = document.getElementById('cropBtn');
     const textToolBtn = document.getElementById('textToolBtn');
     const textPalette = document.getElementById('textPalette');
     const textToolInput = document.getElementById('textToolInput');
@@ -4412,8 +4446,11 @@ function openStampModal(){
       state.imgWidth = 0;
       state.imgHeight = 0;
       state.zoom = 1;
+      state.cropMode = false;
+      state.cropSelection = null;
       state.floorplanGrayscale = false;
       state.gridMode = 'xfine';
+      updateCropToolUI();
       updateFloorplanBwToggleUI();
       updateGridButton();
       resetDataOnly();
@@ -4703,6 +4740,7 @@ function openStampModal(){
       setWorkflowDisabled(document.getElementById('fitBtn'), !state.img, '先に図面を読み込んでください');
       setWorkflowDisabled(document.getElementById('measureBtn'), !state.metersPerPixel, state.img ? '先に縮尺を設定してください' : '先に図面を読み込んでください');
       setWorkflowDisabled(document.getElementById('textToolBtn'), !state.metersPerPixel, state.img ? '先に縮尺を設定してください' : '先に図面を読み込んでください');
+      setWorkflowDisabled(cropBtn, !state.img, '先に図面を読み込んでください');
       updateRouteDemoControlUI();
     }
 
@@ -4816,6 +4854,11 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
 
     panBtn.addEventListener('click', () => {
       state.isPanning = !state.isPanning;
+      if (state.isPanning && state.cropMode) {
+        state.cropMode = false;
+        state.cropSelection = null;
+        updateCropToolUI();
+      }
       panBtn.classList.toggle('active', state.isPanning);
       canvas.style.cursor = state.isPanning ? 'grab' : 'crosshair';
     });
@@ -4840,6 +4883,164 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       gridBtn.addEventListener('click', cycleGridMode);
       updateGridButton();
     }
+
+    function updateCropToolUI() {
+      if (!cropBtn) return;
+      cropBtn.classList.toggle('active', !!state.cropMode);
+      cropBtn.setAttribute('aria-pressed', state.cropMode ? 'true' : 'false');
+      cropBtn.title = state.cropMode
+        ? 'トリミング中：図面上をドラッグして範囲指定'
+        : 'トリミング：範囲指定';
+    }
+
+    function clampWorldPointToImage(wp) {
+      return {
+        x: Math.max(0, Math.min(state.imgWidth || 0, Number(wp?.x) || 0)),
+        y: Math.max(0, Math.min(state.imgHeight || 0, Number(wp?.y) || 0))
+      };
+    }
+
+    function getCropRectWorld(selection = state.cropSelection) {
+      if (!selection) return null;
+      const a = clampWorldPointToImage(selection.start);
+      const b = clampWorldPointToImage(selection.end);
+      const x = Math.min(a.x, b.x);
+      const y = Math.min(a.y, b.y);
+      const w = Math.abs(a.x - b.x);
+      const h = Math.abs(a.y - b.y);
+      return { x, y, w, h };
+    }
+
+    function shiftWorldPoint(point, dx, dy) {
+      if (!point || !Number.isFinite(Number(point.x)) || !Number.isFinite(Number(point.y))) return;
+      point.x -= dx;
+      point.y -= dy;
+    }
+
+    function shiftWorldPointList(points, dx, dy) {
+      if (!Array.isArray(points)) return;
+      points.forEach(point => shiftWorldPoint(point, dx, dy));
+    }
+
+    function shiftCanvasContentForCrop(dx, dy) {
+      shiftWorldPointList(state.scalePoints, dx, dy);
+      shiftWorldPointList(state.measurePoints, dx, dy);
+      shiftWorldPointList(state.recognizeDrawing, dx, dy);
+      (state.homePositions || []).forEach(point => shiftWorldPoint(point, dx, dy));
+      (state.stations || []).forEach(point => shiftWorldPoint(point, dx, dy));
+      (state.stamps || []).forEach(point => shiftWorldPoint(point, dx, dy));
+      (state.textAnnotations || []).forEach(point => shiftWorldPoint(point, dx, dy));
+      (state.routes || []).forEach(route => {
+        shiftWorldPointList(route.points, dx, dy);
+        shiftWorldPointList(route.turn180Points, dx, dy);
+        (route.recognizePaths || []).forEach(path => shiftWorldPointList(path.points, dx, dy));
+      });
+    }
+
+    function resetHistoryToCurrentState() {
+      history.states = [];
+      history.index = -1;
+      saveState();
+    }
+
+    async function applyCropSelection() {
+      const rect = getCropRectWorld();
+      if (!state.img || !rect) return false;
+      const x = Math.floor(rect.x);
+      const y = Math.floor(rect.y);
+      const w = Math.ceil(rect.x + rect.w) - x;
+      const h = Math.ceil(rect.y + rect.h) - y;
+      if (w < 8 || h < 8) {
+        state.cropSelection = null;
+        showToast('トリミング範囲が小さすぎます', 'warning');
+        requestRedraw();
+        return false;
+      }
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = w;
+      cropCanvas.height = h;
+      const cropCtx = cropCanvas.getContext('2d');
+      cropCtx.drawImage(state.img, x, y, w, h, 0, 0, w, h);
+      const dataUrl = cropCanvas.toDataURL('image/png');
+
+      shiftCanvasContentForCrop(x, y);
+      state.cropMode = false;
+      state.cropSelection = null;
+      state.segmentSelectStart = null;
+      await loadFloorplanFromDataUrl(dataUrl, state.imgName || 'トリミング済み図面');
+      updateCropToolUI();
+      setupCanvas();
+      resetHistoryToCurrentState();
+      showToast('選択範囲でトリミングしました');
+      return true;
+    }
+
+    function clipToImageRect(targetCtx, offset, z) {
+      targetCtx.beginPath();
+      targetCtx.rect(offset.x, offset.y, state.imgWidth * z, state.imgHeight * z);
+      targetCtx.clip();
+    }
+
+    function drawCropSelection(targetCtx, offset, z) {
+      if (!state.cropMode || !state.img) return;
+      const rect = getCropRectWorld();
+      const imgX = offset.x;
+      const imgY = offset.y;
+      const imgW = state.imgWidth * z;
+      const imgH = state.imgHeight * z;
+      targetCtx.save();
+      if (rect && rect.w > 0 && rect.h > 0) {
+        const sx = offset.x + rect.x * z;
+        const sy = offset.y + rect.y * z;
+        const sw = rect.w * z;
+        const sh = rect.h * z;
+        targetCtx.fillStyle = 'rgba(15, 23, 42, 0.34)';
+        targetCtx.beginPath();
+        targetCtx.rect(imgX, imgY, imgW, imgH);
+        targetCtx.rect(sx, sy, sw, sh);
+        targetCtx.fill('evenodd');
+        targetCtx.strokeStyle = '#111827';
+        targetCtx.lineWidth = 2;
+        targetCtx.setLineDash([8, 5]);
+        targetCtx.strokeRect(sx, sy, sw, sh);
+        targetCtx.setLineDash([]);
+        targetCtx.fillStyle = 'rgba(255,255,255,0.95)';
+        targetCtx.strokeStyle = '#1176d4';
+        const handles = [[sx, sy], [sx + sw, sy], [sx, sy + sh], [sx + sw, sy + sh]];
+        handles.forEach(([hx, hy]) => {
+          targetCtx.fillRect(hx - 4, hy - 4, 8, 8);
+          targetCtx.strokeRect(hx - 4, hy - 4, 8, 8);
+        });
+      } else {
+        targetCtx.fillStyle = 'rgba(17, 24, 39, 0.12)';
+        targetCtx.fillRect(imgX, imgY, imgW, imgH);
+      }
+      targetCtx.restore();
+    }
+
+    cropBtn?.addEventListener('click', () => {
+      if (!state.img) {
+        showToast('先に図面を読み込んでください', 'warning');
+        return;
+      }
+      state.cropMode = !state.cropMode;
+      state.cropSelection = null;
+      if (state.cropMode) {
+        state.isPanning = false;
+        panBtn?.classList.remove('active');
+        state.measureActive = false;
+        state.measurePoints = [];
+        state.measureDistanceM = null;
+        document.getElementById('measureBtn')?.classList.remove('active');
+        state.textToolActive = false;
+        updateTextToolUI();
+        showToast('トリミング：図面上をドラッグして範囲指定してください');
+      }
+      updateCropToolUI();
+      updateHint();
+      canvas.style.cursor = state.cropMode ? 'crosshair' : (state.isPanning ? 'grab' : 'crosshair');
+      requestRedraw();
+    });
 
     function drawFloorplanImage(targetCtx, img, x, y, width, height) {
       targetCtx.save();
@@ -5402,6 +5603,9 @@ function draw() {
       // Grid (editor only)
       drawWorldGrid(offset, z);
 
+      ctx.save();
+      clipToImageRect(ctx, offset, z);
+
       // Stamps
       drawStampsLayer(ctx, offset, z, false);
 
@@ -5833,6 +6037,9 @@ function draw() {
 
       // Text annotations
       drawTextAnnotationsLayer(ctx, offset, z, false);
+
+      ctx.restore();
+      drawCropSelection(ctx, offset, z);
 
       markUIDirty();
     }
@@ -6327,6 +6534,8 @@ function draw() {
         drawFloorplanImage(exportCtx, state.img, offset.x, offset.y, state.imgWidth * z, state.imgHeight * z);
         drawWorldGridForPngExport(exportCtx, offset, z, exportCanvas);
       }
+      exportCtx.save();
+      clipToImageRect(exportCtx, offset, z);
       if (safeVectorOnly) drawStampFallbackLayerForPngExport(exportCtx, offset, z);
       else drawStampsLayer(exportCtx, offset, z, true);
       (state.homePositions || []).forEach(home => {
@@ -6339,6 +6548,7 @@ function draw() {
         else drawStationMarker(exportCtx, station, offset, z, { isSelected: false });
       });
       drawTextAnnotationsLayer(exportCtx, offset, z, true);
+      exportCtx.restore();
       return exportCanvas;
     }
 
@@ -6611,6 +6821,11 @@ function draw() {
       if (state.routeDemoReflectivePolePlacementActive) {
         canvasHint.style.display = 'block';
         canvasHint.textContent = '反射ポール設置：図面上をクリックして配置';
+        return;
+      }
+      if (state.cropMode) {
+        canvasHint.style.display = 'block';
+        canvasHint.textContent = 'トリミング：残したい範囲をドラッグで指定';
         return;
       }
       const hints = {
@@ -6979,6 +7194,11 @@ function draw() {
         state.measurePoints = [];
         state.measureDistanceM = null;
         document.getElementById('measureBtn')?.classList.remove('active');
+      }
+      if (state.cropMode) {
+        state.cropMode = false;
+        state.cropSelection = null;
+        updateCropToolUI();
       }
 
       // Finish any in-progress recognize drawing
@@ -7538,6 +7758,8 @@ async function loadPDF(file) {
       state.selectedTextId = null;
       state.textIdCounter = 1;
       state.textToolActive = false;
+      state.cropMode = false;
+      state.cropSelection = null;
       state.routes = [];
       state.activeRouteIndex = 0;
       state.soloRouteIndex = null;
@@ -7549,6 +7771,7 @@ async function loadPDF(file) {
       updateStampButtons();
       updateStampEditUI();
       updateTextToolUI();
+      updateCropToolUI();
       updateRouteDemoDetectionRangeUI();
       updateHomeMarkerControls();
       updateStationMarkerControls();
@@ -7580,11 +7803,14 @@ async function loadPDF(file) {
       state.hiddenRouteIndexes = [];
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
+      state.cropMode = false;
+      state.cropSelection = null;
       state.currentMode = state.metersPerPixel ? 'home' : 'scale';
       state.routeSubMode = 'draw';
       updateStampButtons();
       updateStampEditUI();
       updateTextToolUI();
+      updateCropToolUI();
       updateRouteDemoDetectionRangeUI();
       updateHomeMarkerControls();
       updateStationMarkerControls();
@@ -7637,11 +7863,14 @@ async function loadPDF(file) {
       state.hiddenRouteIndexes = [];
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
+      state.cropMode = false;
+      state.cropSelection = null;
       state.currentMode = 'scale';
       state.routeSubMode = 'draw';
       updateStampButtons();
       updateStampEditUI();
       updateTextToolUI();
+      updateCropToolUI();
       updateRouteDemoDetectionRangeUI();
       updateHomeMarkerControls();
       updateStationMarkerControls();
@@ -7847,6 +8076,7 @@ function getWorldPoint(e) {
     let stationDrag = null;
     let stampDrag = null;
     let textDrag = null;
+    let cropDrag = null;
 
     function isRouteDemoRecording() {
       return !!(state.routeDemo && state.routeDemo.recording);
@@ -7856,6 +8086,7 @@ function getWorldPoint(e) {
       stationDrag = null;
       stampDrag = null;
       textDrag = null;
+      cropDrag = null;
       state.isDragging = false;
       if (canvas) canvas.style.cursor = state.isPanning ? 'grab' : 'crosshair';
     }
@@ -8090,6 +8321,14 @@ function getWorldPoint(e) {
       }
 
       if (!state.img) return;
+
+      if (state.cropMode) {
+        const point = clampWorldPointToImage(wp);
+        cropDrag = { start: point };
+        state.cropSelection = { start: { ...point }, end: { ...point } };
+        requestRedraw();
+        return;
+      }
 
       if (state.textToolActive) {
         handleTextToolPointerDown(wp, e);
@@ -8415,6 +8654,15 @@ function getWorldPoint(e) {
         requestRedraw();
         return;
       }
+      if (cropDrag) {
+        const point = clampWorldPointToImage(getWorldPoint(e));
+        state.cropSelection = {
+          start: { ...cropDrag.start },
+          end: { ...point }
+        };
+        requestRedraw();
+        return;
+      }
       if (!state.isDragging) return;
       const dx = e.clientX - state.dragStart.x;
       const dy = e.clientY - state.dragStart.y;
@@ -8423,9 +8671,15 @@ function getWorldPoint(e) {
       state.dragStart = { x: e.clientX, y: e.clientY };
     });
 
-    canvas.addEventListener('pointerup', () => { 
+    canvas.addEventListener('pointerup', async () => { 
       if (isRouteDemoRecording()) {
         cancelCanvasInteractionState();
+        return;
+      }
+      if (cropDrag) {
+        cropDrag = null;
+        await applyCropSelection();
+        canvas.style.cursor = state.cropMode ? 'crosshair' : (state.isPanning ? 'grab' : 'crosshair');
         return;
       }
       if (stationDrag) {
@@ -8464,8 +8718,13 @@ function getWorldPoint(e) {
       stationDrag = null;
       stampDrag = null;
       textDrag = null;
+      cropDrag = null;
+      if (state.cropMode) {
+        state.cropSelection = null;
+        requestRedraw();
+      }
       state.isDragging = false;
-      canvas.style.cursor = state.isPanning ? 'grab' : 'crosshair';
+      canvas.style.cursor = state.cropMode ? 'crosshair' : (state.isPanning ? 'grab' : 'crosshair');
     });
 
     function isTypingTarget(target) {
@@ -9863,6 +10122,8 @@ measureBtn?.addEventListener('click', () => {
           // Fall back to a clean route-only image below.
         }
       }
+      tempCtx.save();
+      clipToImageRect(tempCtx, offset, z);
 
       if (route && route.points && route.points.length >= 2) {
         const pts = route.points;
@@ -9948,6 +10209,7 @@ measureBtn?.addEventListener('click', () => {
       } catch (e) {
         // ignore
       }
+      tempCtx.restore();
 
       try {
         return tempCanvas.toDataURL('image/png');
@@ -10021,6 +10283,8 @@ measureBtn?.addEventListener('click', () => {
   if (!route) return '';
 
   const w2c = (x, y) => ({ x: offset.x + x * z, y: offset.y + y * z });
+  tempCtx.save();
+  clipToImageRect(tempCtx, offset, z);
   const drawReportTriangleArrow = (x, y, angle, color, size) => {
     tempCtx.save();
     tempCtx.translate(x, y);
@@ -10321,6 +10585,7 @@ measureBtn?.addEventListener('click', () => {
   } catch (e) {
     // ignore
   }
+  tempCtx.restore();
       try {
         return tempCanvas.toDataURL('image/png');
       } catch (err) {
