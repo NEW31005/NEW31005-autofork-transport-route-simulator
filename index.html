@@ -4131,8 +4131,8 @@ function openStampModal(){
     };
 
     // History functions
-    function saveState() {
-      const snapshot = JSON.stringify({
+    function saveState(options = {}) {
+      const snapshotData = {
         scalePoints: state.scalePoints,
         metersPerPixel: state.metersPerPixel,
         homePositions: state.homePositions,
@@ -4152,7 +4152,16 @@ function openStampModal(){
         textStyle: state.textStyle,
         stationRadiusWorld: state.stationRadiusWorld,
         homeRadiusWorld: state.homeRadiusWorld
-      });
+      };
+
+      if (options.includeFloorplan) {
+        snapshotData.imgName = state.imgName || '';
+        snapshotData.floorplanDataUrl = state.floorplanDataUrl || '';
+        snapshotData.imgWidth = state.imgWidth || 0;
+        snapshotData.imgHeight = state.imgHeight || 0;
+      }
+
+      const snapshot = JSON.stringify(snapshotData);
       
       // Remove any redo states
       history.states = history.states.slice(0, history.index + 1);
@@ -4167,8 +4176,31 @@ function openStampModal(){
       updateHistoryButtons();
     }
 
-    function restoreState(snapshot) {
+    async function restoreState(snapshot) {
       const data = JSON.parse(snapshot);
+      if (Object.prototype.hasOwnProperty.call(data, 'floorplanDataUrl')) {
+        if (data.floorplanDataUrl) {
+          if (state.floorplanDataUrl !== data.floorplanDataUrl || state.imgName !== data.imgName) {
+            await loadFloorplanFromDataUrl(data.floorplanDataUrl, data.imgName || '読み込み済み図面');
+          } else {
+            state.imgName = data.imgName || state.imgName;
+            state.imgWidth = data.imgWidth || state.imgWidth;
+            state.imgHeight = data.imgHeight || state.imgHeight;
+            updateFileUploadDisplay();
+          }
+        } else {
+          if (state.imgUrl) {
+            try { URL.revokeObjectURL(state.imgUrl); } catch (_) {}
+          }
+          state.img = null;
+          state.imgUrl = null;
+          state.imgName = '';
+          state.floorplanDataUrl = '';
+          state.imgWidth = 0;
+          state.imgHeight = 0;
+          updateFileUploadDisplay();
+        }
+      }
       state.scalePoints = data.scalePoints || [];
       state.metersPerPixel = data.metersPerPixel;
       state.homePositions = data.homePositions || [];
@@ -4225,22 +4257,35 @@ function openStampModal(){
       updateRouteDemoDetectionRangeUI();
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
-      draw();
+      state.cropMode = false;
+      state.cropSelection = null;
+      updateCropToolUI();
+      setupCanvas();
     }
 
-    function globalUndo() {
+    async function globalUndo() {
       if (history.index > 0) {
         history.index--;
-        restoreState(history.states[history.index]);
+        try {
+          await restoreState(history.states[history.index]);
+        } catch (err) {
+          console.error('History restore failed:', err);
+          showToast('履歴の復元に失敗しました', 'error');
+        }
         updateHistoryButtons();
         showToast('操作を戻しました');
       }
     }
 
-    function globalRedo() {
+    async function globalRedo() {
       if (history.index < history.states.length - 1) {
         history.index++;
-        restoreState(history.states[history.index]);
+        try {
+          await restoreState(history.states[history.index]);
+        } catch (err) {
+          console.error('History restore failed:', err);
+          showToast('履歴の復元に失敗しました', 'error');
+        }
         updateHistoryButtons();
         showToast('操作をやり直しました');
       }
@@ -4937,12 +4982,6 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       });
     }
 
-    function resetHistoryToCurrentState() {
-      history.states = [];
-      history.index = -1;
-      saveState();
-    }
-
     async function applyCropSelection() {
       const rect = getCropRectWorld();
       if (!state.img || !rect) return false;
@@ -4956,6 +4995,8 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
         requestRedraw();
         return false;
       }
+      saveState({ includeFloorplan: true });
+
       const cropCanvas = document.createElement('canvas');
       cropCanvas.width = w;
       cropCanvas.height = h;
@@ -4970,7 +5011,7 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       await loadFloorplanFromDataUrl(dataUrl, state.imgName || 'トリミング済み図面');
       updateCropToolUI();
       setupCanvas();
-      resetHistoryToCurrentState();
+      saveState({ includeFloorplan: true });
       showToast('選択範囲でトリミングしました');
       return true;
     }
