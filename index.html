@@ -1094,6 +1094,62 @@
       accent-color: var(--primary);
     }
 
+    .route-demo-stamp-btn {
+      width: 100%;
+      margin-top: 8px;
+      border-color: #f59e0b;
+      color: #b45309;
+      background: #fff7ed;
+    }
+
+    .route-demo-stamp-btn:hover {
+      background: #ffedd5;
+      border-color: #d97706;
+      color: #92400e;
+    }
+
+    .route-demo-stamp-btn.active {
+      background: #ffedd5;
+      border-color: #f59e0b;
+      color: #92400e;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+    }
+
+    .route-demo-reflective-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .route-demo-reflective-row .route-demo-stamp-btn {
+      flex: 1;
+      margin-top: 0;
+    }
+
+    .route-demo-reflective-count {
+      min-width: 44px;
+      text-align: center;
+      border: 1px solid var(--gray-200);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--gray-700);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 5px 8px;
+    }
+
+    .route-demo-reflective-delete {
+      width: 100%;
+      margin-top: 6px;
+      border-color: var(--danger);
+      color: var(--danger);
+      background: #fff5f5;
+    }
+
+    .route-demo-reflective-delete:hover {
+      background: var(--danger-light);
+    }
 
     /* Route home select */
     .route-home-control {
@@ -2835,6 +2891,11 @@ body.stamp-modal-open header{ pointer-events: none; }
               <input type="checkbox" id="routeDemoDetectionRangeCheckbox">
               反射ポール検出範囲
             </label>
+            <div class="route-demo-reflective-row">
+              <button type="button" class="route-demo-btn route-demo-stamp-btn" id="routeDemoReflectivePoleBtn">反射ポール設置</button>
+              <span class="route-demo-reflective-count" id="routeDemoReflectivePoleCount">0個</span>
+            </div>
+            <button type="button" class="route-demo-btn route-demo-reflective-delete" id="routeDemoReflectivePoleDeleteBtn" style="display:none;">選択中の反射ポールを削除</button>
           </div>
 
           <div class="divider"></div>
@@ -3569,6 +3630,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       // ルート走行デモ（画面用）
       routeDemo: { running: false, paused: false, routeIndex: null, dist: 0, lastTs: 0, rafId: null, runId: 0, speedFactor: 1 },
       routeDemoDetectionRange: false,
+      routeDemoReflectivePolePlacementActive: false,
       currentMode: 'scale',
       routeSubMode: 'draw',
       segmentSelectStart: null,
@@ -4984,6 +5046,44 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       return isReflectivePoleStampType(stamp?.type);
     }
 
+    function getReflectivePoleStamps() {
+      const poles = (state.stamps || []).filter(isReflectivePoleStamp);
+      normalizeReflectivePoleNumbers(poles);
+      return poles;
+    }
+
+    function getNextReflectivePoleNumber(poles = null) {
+      const used = new Set((poles || (state.stamps || []).filter(isReflectivePoleStamp))
+        .map(stamp => Number(stamp.reflectivePoleNo))
+        .filter(n => Number.isInteger(n) && n > 0));
+      let n = 1;
+      while (used.has(n)) n++;
+      return n;
+    }
+
+    function normalizeReflectivePoleNumbers(poles = null) {
+      const list = poles || (state.stamps || []).filter(isReflectivePoleStamp);
+      const used = new Set();
+      list.forEach(stamp => {
+        const n = Number(stamp.reflectivePoleNo);
+        if (Number.isInteger(n) && n > 0 && !used.has(n)) {
+          stamp.reflectivePoleNo = n;
+          used.add(n);
+          return;
+        }
+        let next = 1;
+        while (used.has(next)) next++;
+        stamp.reflectivePoleNo = next;
+        used.add(next);
+      });
+    }
+
+    function getSelectedReflectivePoleStamp() {
+      if (state.selectedStampId === null || state.selectedStampId === undefined) return null;
+      const selectedId = String(state.selectedStampId);
+      return (state.stamps || []).find(stamp => String(stamp.id) === selectedId && isReflectivePoleStamp(stamp)) || null;
+    }
+
     function isReflectivePoleRangeOn(stamp) {
       if (!isReflectivePoleStamp(stamp)) return false;
       if (stamp.range10mOverride === true) return true;
@@ -5084,9 +5184,38 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       targetCtx.restore();
     }
 
+    function drawReflectivePoleLabel(targetCtx, stamp, offset, z, w, h) {
+      if (!isReflectivePoleStamp(stamp)) return;
+      const no = Number(stamp.reflectivePoleNo);
+      if (!Number.isInteger(no) || no <= 0) return;
+      const text = `R${no}`;
+      const cx = offset.x + stamp.x * z;
+      const cy = offset.y + stamp.y * z;
+      targetCtx.save();
+      targetCtx.font = '800 11px "Noto Sans JP", sans-serif';
+      targetCtx.textBaseline = 'middle';
+      const padX = 4;
+      const labelW = Math.max(22, targetCtx.measureText(text).width + padX * 2);
+      const labelH = 16;
+      const x = cx - w / 2;
+      const y = cy - h / 2 - labelH + 2;
+      targetCtx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+      targetCtx.strokeStyle = '#f59e0b';
+      targetCtx.lineWidth = 1.4;
+      targetCtx.beginPath();
+      if (typeof targetCtx.roundRect === 'function') targetCtx.roundRect(x, y, labelW, labelH, 4);
+      else targetCtx.rect(x, y, labelW, labelH);
+      targetCtx.fill();
+      targetCtx.stroke();
+      targetCtx.fillStyle = '#92400e';
+      targetCtx.fillText(text, x + padX, y + labelH / 2);
+      targetCtx.restore();
+    }
+
     function drawStampsLayer(ctx, offset, z, forReport = false) {
       if (!state.metersPerPixel) return;
       if (!state.stamps || state.stamps.length === 0) return;
+      normalizeReflectivePoleNumbers();
 
       for (const s of state.stamps) {
         const def = getStampDef(s);
@@ -5130,6 +5259,7 @@ if (!forReport && s.id === state.selectedStampId) {
           ctx.setLineDash([]);
         }
         ctx.restore();
+        drawReflectivePoleLabel(ctx, s, offset, z, w, h);
       }
     }
 
@@ -6464,6 +6594,11 @@ function draw() {
         canvasHint.textContent = '📏 計測：2点をクリック（3点目でリセット）';
         return;
       }
+      if (state.routeDemoReflectivePolePlacementActive) {
+        canvasHint.style.display = 'block';
+        canvasHint.textContent = '反射ポール設置：図面上をクリックして配置';
+        return;
+      }
       const hints = {
         scale: '📏 縮尺：2点クリック→実距離入力',
         home: state.metersPerPixel ? '🏠 初期位置：クリックで設定' : '🏠 初期位置：先に📏縮尺を確定してください',
@@ -6840,6 +6975,7 @@ function draw() {
 
       // Common resets
       state.segmentSelectStart = null;
+      if (mode !== 'route') state.routeDemoReflectivePolePlacementActive = false;
 
       // Leaving the old stamp modal path, if it happens to be open from a previous build.
       if (stampModalOpen) closeStampModal(false);
@@ -7946,6 +8082,34 @@ function getWorldPoint(e) {
         return;
       }
 
+      if (state.routeDemoReflectivePolePlacementActive) {
+        if (!state.metersPerPixel) {
+          showToast('先に縮尺を設定してください', 'warning');
+          return;
+        }
+        const stampIndex = findStampAt(wp);
+        if (stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex])) {
+          const s = state.stamps[stampIndex];
+          state.selectedStampId = s.id;
+          updateRouteDemoControlUI();
+          requestRedraw();
+          stampDrag = {
+            index: stampIndex,
+            id: s.id,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startX: s.x,
+            startY: s.y,
+            moved: false
+          };
+          canvas.style.cursor = 'move';
+          return;
+        }
+        placeReflectivePoleStampAt(wp);
+        draw();
+        return;
+      }
+
       if (state.currentMode === 'station') {
         const stationIndex = findStationAt(wp);
         if (stationIndex !== -1) {
@@ -8536,9 +8700,11 @@ function getWorldPoint(e) {
       if (idx === -1) return;
       state.stamps.splice(idx, 1);
       state.selectedStampId = null;
+      normalizeReflectivePoleNumbers();
       saveState();
       updateStampButtons();
       updateStampEditUI();
+      updateRouteDemoControlUI();
       updateHistoryButtons();
       requestRedraw();
     }
@@ -8704,6 +8870,7 @@ function handleStampClick(wp) {
         scale: typeof def.defaultScale === 'number' ? def.defaultScale : 1,
         flipX: false,
         flipY: false,
+        reflectivePoleNo: isReflectivePoleStampType(type) ? getNextReflectivePoleNumber() : null,
         range10mOverride: isReflectivePoleStampType(type) ? null : false,
         range10m: isReflectivePoleStampType(type) ? (state.reflectivePoleRangeDefault === true) : false,
         reflectivePoleDetectionRange10m: false
@@ -8713,6 +8880,42 @@ function handleStampClick(wp) {
       saveState();
       updateStampButtons();
       updateStampEditUI();
+      updateRouteDemoControlUI();
+      requestRedraw();
+    }
+
+    function placeReflectivePoleStampAt(wp) {
+      if (!state.metersPerPixel) {
+        showToast('先に縮尺を設定してください', 'warning');
+        return;
+      }
+      const def = STAMP_DEFS.reflective_pole;
+      if (!def) {
+        showToast('反射ポールのスタンプ定義が見つかりません', 'error');
+        return;
+      }
+      const snapped = applyPlacementSnap(wp);
+      normalizeReflectivePoleNumbers();
+      const newStamp = {
+        id: state.stampIdCounter++,
+        type: 'reflective_pole',
+        x: snapped.x,
+        y: snapped.y,
+        rot: 0,
+        scale: typeof def.defaultScale === 'number' ? def.defaultScale : 1,
+        flipX: false,
+        flipY: false,
+        reflectivePoleNo: getNextReflectivePoleNumber(),
+        range10mOverride: null,
+        range10m: state.reflectivePoleRangeDefault === true,
+        reflectivePoleDetectionRange10m: false
+      };
+      state.stamps.push(newStamp);
+      state.selectedStampId = newStamp.id;
+      saveState();
+      updateStampButtons();
+      updateStampEditUI();
+      updateRouteDemoControlUI();
       requestRedraw();
     }
 
@@ -11369,10 +11572,15 @@ measureBtn?.addEventListener('click', () => {
       const toggleBtn = document.getElementById('routeDemoToggleBtn');
       const stopBtn = document.getElementById('routeDemoStopBtn');
       const saveBtn = document.getElementById('routeDemoSaveBtn');
+      const reflectivePoleBtn = document.getElementById('routeDemoReflectivePoleBtn');
+      const reflectivePoleCount = document.getElementById('routeDemoReflectivePoleCount');
+      const reflectivePoleDeleteBtn = document.getElementById('routeDemoReflectivePoleDeleteBtn');
       const hasRoute = Array.isArray(state.routes) && state.routes.length > 0;
       const activeRoute = state.routes?.[state.activeRouteIndex];
       const hasPlayableRoute = hasRoute && Array.isArray(activeRoute?.points) && activeRoute.points.length >= 2;
       const routeReady = canUseMode('route');
+      const poles = getReflectivePoleStamps();
+      const selectedReflectivePole = getSelectedReflectivePoleStamp();
 
       if (toggleBtn) {
         toggleBtn.disabled = !hasPlayableRoute || !routeReady || demo.recording;
@@ -11389,13 +11597,51 @@ measureBtn?.addEventListener('click', () => {
         saveBtn.disabled = !hasPlayableRoute || !routeReady || demo.recording;
         saveBtn.textContent = demo.recording ? '🎥 保存中...' : '🎥 動画保存';
       }
+      if (reflectivePoleBtn) {
+        setWorkflowDisabled(
+          reflectivePoleBtn,
+          !canUseMode('stamp') || demo.recording,
+          demo.recording ? '録画中は設置できません' : getModeDisabledReason('stamp')
+        );
+        reflectivePoleBtn.classList.toggle('active', state.routeDemoReflectivePolePlacementActive === true);
+        reflectivePoleBtn.textContent = state.routeDemoReflectivePolePlacementActive ? '反射ポール設置中' : '反射ポール設置';
+      }
+      if (reflectivePoleCount) {
+        reflectivePoleCount.textContent = `${poles.length}個`;
+      }
+      if (reflectivePoleDeleteBtn) {
+        reflectivePoleDeleteBtn.style.display = selectedReflectivePole ? 'block' : 'none';
+        reflectivePoleDeleteBtn.disabled = !selectedReflectivePole || demo.recording;
+      }
       updateRouteDemoDetectionRangeUI();
+    }
+
+    function activateReflectivePoleStampPlacement() {
+      const demo = ensureRouteDemoState();
+      if (demo.recording) {
+        showToast('録画中は反射ポールを設置できません', 'warning');
+        return;
+      }
+      if (!canUseMode('stamp')) {
+        showToast(getModeDisabledReason('stamp'), 'warning');
+        return;
+      }
+      if (demo.running) stopRouteDemo({ skipCancel: true });
+      if (state.currentMode !== 'route' && canUseMode('route')) setMode('route');
+      state.routeDemoReflectivePolePlacementActive = !state.routeDemoReflectivePolePlacementActive;
+      updateRouteDemoControlUI();
+      updateHint();
+      canvas.style.cursor = state.routeDemoReflectivePolePlacementActive ? 'crosshair' : (state.isPanning ? 'grab' : 'crosshair');
+      showToast(state.routeDemoReflectivePolePlacementActive
+        ? '反射ポール設置：図面上をクリックしてください。'
+        : '反射ポール設置を終了しました。');
     }
 
     function setupRouteDemoControlButtons() {
       const toggleBtn = document.getElementById('routeDemoToggleBtn');
       const stopBtn = document.getElementById('routeDemoStopBtn');
       const saveBtn = document.getElementById('routeDemoSaveBtn');
+      const reflectivePoleBtn = document.getElementById('routeDemoReflectivePoleBtn');
       if (toggleBtn && toggleBtn.dataset.bound !== '1') {
         toggleBtn.dataset.bound = '1';
         toggleBtn.addEventListener('click', (e) => {
@@ -11418,6 +11664,23 @@ measureBtn?.addEventListener('click', () => {
           e.preventDefault();
           e.stopPropagation();
           await saveCurrentRouteDemoVideo();
+        });
+      }
+      if (reflectivePoleBtn && reflectivePoleBtn.dataset.bound !== '1') {
+        reflectivePoleBtn.dataset.bound = '1';
+        reflectivePoleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          activateReflectivePoleStampPlacement();
+        });
+      }
+      if (reflectivePoleDeleteBtn && reflectivePoleDeleteBtn.dataset.bound !== '1') {
+        reflectivePoleDeleteBtn.dataset.bound = '1';
+        reflectivePoleDeleteBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!getSelectedReflectivePoleStamp()) return;
+          deleteSelectedStamp();
         });
       }
       updateRouteDemoControlUI();
