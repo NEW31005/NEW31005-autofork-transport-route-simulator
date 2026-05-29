@@ -3657,6 +3657,7 @@ body.stamp-modal-open header{ pointer-events: none; }
     // ============================
     const REFLECTIVE_POLE_RANGE_M = 10;
     const AUTOFORK_DETECTION_RANGE_M = 10;
+    const AUTOFORK_DETECTION_REQUIRED_REFLECTIVE_POLES = 3;
     const AUTOFORK_DETECTION_ORIGIN_PX = { x: 1177, y: 491.5, w: 2398, h: 983 };
     const STAMP_DEFS = {
       autofork:        { label: "AutoFork",            file: "StampAssets/stamp_autofork.png",            wM: 2.398, hM: 0.983, rotatable: true },
@@ -11724,19 +11725,36 @@ measureBtn?.addEventListener('click', () => {
       };
     }
 
+    function countReflectivePolesInDetectionRange(center, radiusWorld) {
+      if (!center || !Number.isFinite(radiusWorld)) return 0;
+      const stamps = Array.isArray(state.stamps) ? state.stamps : [];
+      const limit = radiusWorld + 1e-6;
+      let count = 0;
+      for (const stamp of stamps) {
+        if (!isReflectivePoleStamp(stamp)) continue;
+        const dx = Number(stamp.x) - center.x;
+        const dy = Number(stamp.y) - center.y;
+        if (!Number.isFinite(dx) || !Number.isFinite(dy)) continue;
+        if (Math.hypot(dx, dy) <= limit) count++;
+      }
+      return count;
+    }
+
     function drawRouteDemoVehicleDetectionRange(targetCtx, pose, loaded, wWorld, hWorld, offset, z) {
       if (state.routeDemoDetectionRange !== true || !state.metersPerPixel) return;
       const center = getRouteDemoDetectionCenterWorld(pose, loaded, wWorld, hWorld);
       if (!center) return;
       const radiusWorld = AUTOFORK_DETECTION_RANGE_M / state.metersPerPixel;
+      const poleCount = countReflectivePolesInDetectionRange(center, radiusWorld);
+      const hasEnoughPoles = poleCount >= AUTOFORK_DETECTION_REQUIRED_REFLECTIVE_POLES;
       const cx = offset.x + center.x * z;
       const cy = offset.y + center.y * z;
       targetCtx.save();
       targetCtx.beginPath();
       targetCtx.arc(cx, cy, radiusWorld * z, 0, Math.PI * 2);
-      targetCtx.fillStyle = 'rgba(59, 130, 246, 0.16)';
+      targetCtx.fillStyle = hasEnoughPoles ? 'rgba(59, 130, 246, 0.16)' : 'rgba(239, 68, 68, 0.16)';
       targetCtx.fill();
-      targetCtx.strokeStyle = 'rgba(37, 99, 235, 0.72)';
+      targetCtx.strokeStyle = hasEnoughPoles ? 'rgba(37, 99, 235, 0.72)' : 'rgba(220, 38, 38, 0.72)';
       targetCtx.lineWidth = Math.max(1.5, 2 * z);
       targetCtx.stroke();
       targetCtx.restore();
