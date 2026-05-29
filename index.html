@@ -1129,7 +1129,7 @@
     }
 
     .route-demo-reflective-count {
-      min-width: 44px;
+      min-width: 72px;
       text-align: center;
       border: 1px solid var(--gray-200);
       border-radius: 999px;
@@ -1138,6 +1138,7 @@
       font-size: 10px;
       font-weight: 800;
       padding: 5px 8px;
+      white-space: nowrap;
     }
 
     .route-demo-reflective-delete {
@@ -1147,6 +1148,8 @@
       border-color: var(--gray-300);
       color: var(--danger);
       background: #fff;
+      align-items: center;
+      justify-content: center;
     }
 
     .route-demo-reflective-delete:hover {
@@ -2895,7 +2898,7 @@ body.stamp-modal-open header{ pointer-events: none; }
             </label>
             <div class="route-demo-reflective-row">
               <button type="button" class="route-demo-btn route-demo-stamp-btn" id="routeDemoReflectivePoleBtn">反射ポール設置</button>
-              <span class="route-demo-reflective-count" id="routeDemoReflectivePoleCount">0本</span>
+              <span class="route-demo-reflective-count" id="routeDemoReflectivePoleCount">総数 0本</span>
             </div>
             <button type="button" class="route-demo-btn route-demo-reflective-delete" id="routeDemoReflectivePoleDeleteBtn" style="display:none;">削除</button>
           </div>
@@ -8094,6 +8097,8 @@ function getWorldPoint(e) {
         if (stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex])) {
           const s = state.stamps[stampIndex];
           state.selectedStampId = s.id;
+          updateStampButtons();
+          updateStampEditUI();
           updateRouteDemoControlUI();
           requestRedraw();
           stampDrag = {
@@ -8138,6 +8143,30 @@ function getWorldPoint(e) {
           state.selectedStampId = s.id;
           updateStampButtons();
           updateStampEditUI();
+          updateRouteDemoControlUI();
+          requestRedraw();
+          stampDrag = {
+            index: stampIndex,
+            id: s.id,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startX: s.x,
+            startY: s.y,
+            moved: false
+          };
+          canvas.style.cursor = 'move';
+          return;
+        }
+      }
+
+      if (state.currentMode === 'route') {
+        const stampIndex = findStampAt(wp);
+        if (stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex])) {
+          const s = state.stamps[stampIndex];
+          state.selectedStampId = s.id;
+          updateStampButtons();
+          updateStampEditUI();
+          updateRouteDemoControlUI();
           requestRedraw();
           stampDrag = {
             index: stampIndex,
@@ -8611,6 +8640,7 @@ function getWorldPoint(e) {
         if (stampScaleRow) stampScaleRow.style.display = 'none';
         [stampReflectiveRangeRow, stampReflectiveRangeRowModal, stampReflectiveAllRangeRow, stampReflectiveAllRangeRowModal, stampAutoForkDetectionRangeRow, stampAutoForkDetectionRangeRowModal].forEach(row => { if (row) row.style.display = 'none'; });
         [stampReflectiveRangeCheckbox, stampReflectiveRangeCheckboxModal, stampReflectiveAllRangeCheckbox, stampReflectiveAllRangeCheckboxModal, stampAutoForkDetectionRangeCheckbox, stampAutoForkDetectionRangeCheckboxModal].forEach(cb => { if (cb) cb.checked = false; });
+        updateRouteDemoControlUI();
         return;
       }
 
@@ -8684,6 +8714,7 @@ function getWorldPoint(e) {
       [stampAutoForkDetectionRangeCheckbox, stampAutoForkDetectionRangeCheckboxModal].forEach(cb => {
         if (cb) cb.checked = canShowAutoForkDetection && s.reflectivePoleDetectionRange10m === true;
       });
+      updateRouteDemoControlUI();
     }
 
     function applyStampChange(mutatorFn) {
@@ -8852,6 +8883,7 @@ function handleStampClick(wp) {
         state.selectedStampId = s.id;
         updateStampButtons();
         updateStampEditUI();
+        updateRouteDemoControlUI();
         requestRedraw();
         return;
       }
@@ -11611,10 +11643,10 @@ measureBtn?.addEventListener('click', () => {
         reflectivePoleBtn.textContent = state.routeDemoReflectivePolePlacementActive ? '反射ポール設置中' : '反射ポール設置';
       }
       if (reflectivePoleCount) {
-        reflectivePoleCount.textContent = `${poles.length}本`;
+        reflectivePoleCount.textContent = `総数 ${poles.length}本`;
       }
       if (reflectivePoleDeleteBtn) {
-        reflectivePoleDeleteBtn.style.display = selectedReflectivePole ? 'block' : 'none';
+        reflectivePoleDeleteBtn.style.display = selectedReflectivePole ? 'inline-flex' : 'none';
         reflectivePoleDeleteBtn.disabled = !selectedReflectivePole || demo.recording;
       }
       updateRouteDemoDetectionRangeUI();
@@ -11647,6 +11679,7 @@ measureBtn?.addEventListener('click', () => {
       const stopBtn = document.getElementById('routeDemoStopBtn');
       const saveBtn = document.getElementById('routeDemoSaveBtn');
       const reflectivePoleBtn = document.getElementById('routeDemoReflectivePoleBtn');
+      const reflectivePoleDeleteBtn = document.getElementById('routeDemoReflectivePoleDeleteBtn');
       if (toggleBtn && toggleBtn.dataset.bound !== '1') {
         toggleBtn.dataset.bound = '1';
         toggleBtn.addEventListener('click', (e) => {
