@@ -4178,7 +4178,9 @@ function openStampModal(){
 
     async function restoreState(snapshot) {
       const data = JSON.parse(snapshot);
+      let restoredFloorplan = false;
       if (Object.prototype.hasOwnProperty.call(data, 'floorplanDataUrl')) {
+        restoredFloorplan = true;
         if (data.floorplanDataUrl) {
           if (state.floorplanDataUrl !== data.floorplanDataUrl || state.imgName !== data.imgName) {
             await loadFloorplanFromDataUrl(data.floorplanDataUrl, data.imgName || '読み込み済み図面');
@@ -4261,6 +4263,7 @@ function openStampModal(){
       state.cropSelection = null;
       updateCropToolUI();
       setupCanvas();
+      if (restoredFloorplan) centerCanvas();
     }
 
     async function globalUndo() {
@@ -4830,7 +4833,13 @@ function openStampModal(){
 
     function getImageOffset() {
       const padding = 100;
-      return { x: padding, y: padding };
+      if (!state.img) return { x: padding, y: padding };
+      const imageW = (state.imgWidth || 0) * state.zoom;
+      const imageH = (state.imgHeight || 0) * state.zoom;
+      return {
+        x: Math.max(padding, (canvas.width - imageW) / 2),
+        y: Math.max(padding, (canvas.height - imageH) / 2)
+      };
     }
 
     function updateZoomDisplay() {
@@ -5011,6 +5020,7 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       await loadFloorplanFromDataUrl(dataUrl, state.imgName || 'トリミング済み図面');
       updateCropToolUI();
       setupCanvas();
+      centerCanvas();
       saveState({ includeFloorplan: true });
       showToast('選択範囲でトリミングしました');
       return true;
