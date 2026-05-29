@@ -3202,6 +3202,10 @@ body.stamp-modal-open header{ pointer-events: none; }
             <span class="result-label">総距離</span>
             <span class="result-value" id="totalDistance">0 m</span>
           </div>
+          <div class="result-row">
+            <span class="result-label">総反射ポール設置数</span>
+            <span class="result-value" id="reflectivePoleTotalCount">0本</span>
+          </div>
         </div>
 
         <div class="results-card">
@@ -5160,14 +5164,16 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       const center = getAutoForkDetectionCenterWorld(stamp, baseSize);
       if (!center) return;
       const radiusWorld = AUTOFORK_DETECTION_RANGE_M / state.metersPerPixel;
+      const poleCount = countReflectivePolesInDetectionRange(center, radiusWorld);
+      const hasEnoughPoles = poleCount >= AUTOFORK_DETECTION_REQUIRED_REFLECTIVE_POLES;
       const cx = offset.x + center.x * z;
       const cy = offset.y + center.y * z;
       targetCtx.save();
       targetCtx.beginPath();
       targetCtx.arc(cx, cy, radiusWorld * z, 0, Math.PI * 2);
-      targetCtx.fillStyle = 'rgba(59, 130, 246, 0.16)';
+      targetCtx.fillStyle = hasEnoughPoles ? 'rgba(59, 130, 246, 0.16)' : 'rgba(239, 68, 68, 0.16)';
       targetCtx.fill();
-      targetCtx.strokeStyle = 'rgba(37, 99, 235, 0.72)';
+      targetCtx.strokeStyle = hasEnoughPoles ? 'rgba(37, 99, 235, 0.72)' : 'rgba(220, 38, 38, 0.72)';
       targetCtx.lineWidth = Math.max(1.5, 2 * z);
       targetCtx.stroke();
       targetCtx.restore();
@@ -6555,6 +6561,8 @@ function draw() {
       const result = calculateRouteTime(state.routes[state.activeRouteIndex]);
       state.activeTurnPoints = result.turnPoints || [];
       document.getElementById('totalDistance').textContent = `${result.distance.toFixed(2)} m`;
+      const reflectivePoleTotalCount = document.getElementById('reflectivePoleTotalCount');
+      if (reflectivePoleTotalCount) reflectivePoleTotalCount.textContent = `${getReflectivePoleStamps().length}本`;
       document.getElementById('emptyTime').textContent = `${formatTimeSec(result.emptyTime)}`;
       document.getElementById('loadedTime').textContent = `${formatTimeSec(result.loadedTime)}`;
       document.getElementById('loadingTime').textContent = `${result.totalLoadingCount}回 × 6秒 = ${formatTimeSec(result.loadingTime)}`;
