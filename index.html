@@ -4208,6 +4208,7 @@ function openStampModal(){
         }
       }
       state.scalePoints = data.scalePoints || [];
+      state.scalePointsVisible = false;
       state.metersPerPixel = data.metersPerPixel;
       state.homePositions = data.homePositions || [];
       state.homePositions.forEach(normalizeHomePosition);
@@ -4241,6 +4242,7 @@ function openStampModal(){
       state.stampIdCounter = data.stampIdCounter || (Math.max(0, ...state.stamps.map(s => s.id || 0)) + 1);
       state.stampType = data.stampType || state.stampType || 'autofork';
       state.selectedStampId = null;
+      preloadStampImages();
       updateStampButtons();
       updateStampEditUI();
 
@@ -9875,6 +9877,7 @@ measureBtn?.addEventListener('click', () => {
           state.metersPerPixel = data.scale.metersPerPixel;
           document.getElementById('realDistance').value = data.scale.realDistance || 10;
         }
+        state.scalePointsVisible = false;
 
         // ⑥ 互換処理：旧homePositionを新homePositions形式に変換
         if (data.homePositions && Array.isArray(data.homePositions)) {
@@ -9945,6 +9948,7 @@ measureBtn?.addEventListener('click', () => {
         state.stampIdCounter = data.stampIdCounter || (Math.max(0, ...state.stamps.map(s => s.id || 0)) + 1);
         state.stampType = data.stampType || state.stampType || 'autofork';
         state.selectedStampId = null;
+        preloadStampImages();
 
         state.textAnnotations = Array.isArray(data.textAnnotations) ? data.textAnnotations : [];
         state.textIdCounter = data.textIdCounter || (Math.max(0, ...state.textAnnotations.map(t => t.id || 0)) + 1);
