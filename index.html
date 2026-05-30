@@ -2882,6 +2882,75 @@
           height: 21px;
         }
 
+        /* ===== Rich report refinement v3 ===== */
+        .report-document-header {
+          min-height: 92px;
+          padding: 8px 28px;
+          background:
+            linear-gradient(112deg, #06163b 0%, #08265d 40%, #00529A 62%, #12a0e1 78%, #eaf8ff 91%, #ffffff 100%);
+        }
+        .report-document-header::after {
+          background:
+            linear-gradient(151deg, transparent 0 47%, rgba(31, 169, 238, 0.18) 51%, rgba(255,255,255,0.62) 63%, transparent 76%),
+            linear-gradient(161deg, transparent 0 56%, rgba(72, 213, 255, 0.18) 59%, rgba(255,255,255,0.54) 71%, transparent 83%),
+            radial-gradient(ellipse at 83% 4%, rgba(255,255,255,0.72), rgba(255,255,255,0.20) 27%, transparent 43%);
+          opacity: 1;
+        }
+        .report-logo {
+          width: auto;
+          height: 82px;
+          max-width: 240px;
+          max-height: none;
+          filter: drop-shadow(0 4px 8px rgba(3, 34, 82, 0.16));
+        }
+        .report-disclaimer {
+          background: linear-gradient(90deg, #00366f 0%, #00529A 52%, #0074c8 100%);
+        }
+        .report-page.portrait .report-metrics {
+          grid-template-columns: 235px minmax(0, 1fr);
+          grid-template-areas:
+            "summary summary"
+            "portrait-legend details";
+          gap: 11px 14px;
+        }
+        .report-page.portrait .metric-summary {
+          grid-area: summary;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          margin: 0 14px 2px;
+        }
+        .report-page.portrait .report-portrait-legend {
+          align-self: start;
+          margin-top: 0;
+        }
+        .report-page.portrait .report-metrics table {
+          align-self: start;
+        }
+        .report-page.portrait .metric-card {
+          min-height: 66px;
+          grid-template-columns: 46px minmax(0, 1fr);
+        }
+        .report-page.portrait .metric-icon {
+          width: 39px;
+          height: 39px;
+        }
+        .report-page.portrait .metric-icon svg {
+          width: 24px;
+          height: 24px;
+        }
+        .report-page.portrait .report-image-wrap {
+          padding: 28px 12px 10px;
+        }
+        .report-page.landscape .report-document-header {
+          background:
+            linear-gradient(112deg, #06163b 0%, #08265d 40%, #00529A 62%, #12a0e1 78%, #eaf8ff 91%, #ffffff 100%);
+        }
+        .report-page.landscape .report-logo {
+          width: auto;
+          height: 66px;
+          max-width: 205px;
+        }
+
 /* Page breaks for print/PDF */
 @media print {
   .report-preview { overflow: visible !important; max-height: none !important; }
@@ -11876,7 +11945,7 @@ measureBtn?.addEventListener('click', () => {
                     <strong>${formatTime(res.totalTime || 0)}</strong>
                   </div>
                   <div class="metric-card loaded">
-                    <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.2"></circle><circle cx="18" cy="6" r="2.2"></circle><path d="M7.6 16.4c2.8-5.1 8-3.6 8.8-8.8"></path><path d="M10 11.5l2.2 2.2 4.1-4.1"></path></svg></span>
+                    <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 20s4-3.2 4-7a4 4 0 0 0-8 0c0 3.8 4 7 4 7z"></path><circle cx="7" cy="13" r="1.25"></circle><path d="M17 12s4-3.2 4-7a4 4 0 0 0-8 0c0 3.8 4 7 4 7z"></path><circle cx="17" cy="5" r="1.25"></circle><path d="M9.8 18.1c3.8-.3 6.4-2.3 7.2-5.4"></path></svg></span>
                     <span class="metric-label">ルート距離</span>
                     <strong>${formatNumber(res.distance || 0)} m</strong>
                   </div>
@@ -12613,6 +12682,75 @@ measureBtn?.addEventListener('click', () => {
         .report-page.landscape .metric-icon svg {
           width: 21px;
           height: 21px;
+        }
+
+        /* ===== Rich report refinement v3 ===== */
+        .report-document-header {
+          min-height: 92px;
+          padding: 8px 28px;
+          background:
+            linear-gradient(112deg, #06163b 0%, #08265d 40%, #00529A 62%, #12a0e1 78%, #eaf8ff 91%, #ffffff 100%);
+        }
+        .report-document-header::after {
+          background:
+            linear-gradient(151deg, transparent 0 47%, rgba(31, 169, 238, 0.18) 51%, rgba(255,255,255,0.62) 63%, transparent 76%),
+            linear-gradient(161deg, transparent 0 56%, rgba(72, 213, 255, 0.18) 59%, rgba(255,255,255,0.54) 71%, transparent 83%),
+            radial-gradient(ellipse at 83% 4%, rgba(255,255,255,0.72), rgba(255,255,255,0.20) 27%, transparent 43%);
+          opacity: 1;
+        }
+        .report-logo {
+          width: auto;
+          height: 82px;
+          max-width: 240px;
+          max-height: none;
+          filter: drop-shadow(0 4px 8px rgba(3, 34, 82, 0.16));
+        }
+        .report-disclaimer {
+          background: linear-gradient(90deg, #00366f 0%, #00529A 52%, #0074c8 100%);
+        }
+        .report-page.portrait .report-metrics {
+          grid-template-columns: 235px minmax(0, 1fr);
+          grid-template-areas:
+            "summary summary"
+            "portrait-legend details";
+          gap: 11px 14px;
+        }
+        .report-page.portrait .metric-summary {
+          grid-area: summary;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          margin: 0 14px 2px;
+        }
+        .report-page.portrait .report-portrait-legend {
+          align-self: start;
+          margin-top: 0;
+        }
+        .report-page.portrait .report-metrics table {
+          align-self: start;
+        }
+        .report-page.portrait .metric-card {
+          min-height: 66px;
+          grid-template-columns: 46px minmax(0, 1fr);
+        }
+        .report-page.portrait .metric-icon {
+          width: 39px;
+          height: 39px;
+        }
+        .report-page.portrait .metric-icon svg {
+          width: 24px;
+          height: 24px;
+        }
+        .report-page.portrait .report-image-wrap {
+          padding: 28px 12px 10px;
+        }
+        .report-page.landscape .report-document-header {
+          background:
+            linear-gradient(112deg, #06163b 0%, #08265d 40%, #00529A 62%, #12a0e1 78%, #eaf8ff 91%, #ffffff 100%);
+        }
+        .report-page.landscape .report-logo {
+          width: auto;
+          height: 66px;
+          max-width: 205px;
         }
         @media print {
           body { padding: 0; background: #fff; }
