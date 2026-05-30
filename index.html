@@ -2307,7 +2307,8 @@
 }
 
 .route-image,
-.route-svg {
+.route-svg,
+.report-canvas-image {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
@@ -10701,6 +10702,24 @@ measureBtn?.addEventListener('click', () => {
       }
     }
 
+    function buildReportCanvasVisualHtml() {
+      if (!hasReportCanvasContent()) return '';
+      const makeImg = (src) => `<img class="route-image report-canvas-image" src="${src}" alt="キャンバス画像" />`;
+      try {
+        const sourceCanvas = renderCanvasPngExport({ includeFloorplan: !!state.img, safeVectorOnly: false });
+        return makeImg(sourceCanvas.toDataURL('image/png'));
+      } catch (err) {
+        console.warn('Report canvas image export fell back to safe renderer:', err);
+        try {
+          const sourceCanvas = renderCanvasPngExport({ includeFloorplan: !!state.img, safeVectorOnly: true });
+          return makeImg(sourceCanvas.toDataURL('image/png'));
+        } catch (fallbackErr) {
+          console.warn('Report canvas image safe renderer failed:', fallbackErr);
+          return makeImg(makeCleanReportImage('レポート画像を生成できませんでした'));
+        }
+      }
+    }
+
     document.getElementById('reportBtn').addEventListener('click', async () => {
       document.getElementById('reportModal').classList.add('active');
       try {
@@ -11279,6 +11298,7 @@ measureBtn?.addEventListener('click', () => {
       const reflectivePoleReportRow = reflectivePoleCountForReport > 0
         ? `<tr><th>反射ポール設置数</th><td>${reflectivePoleCountForReport} 本</td></tr>`
         : '';
+      const reportCanvasVisual = buildReportCanvasVisualHtml();
 
       const routeEntries = routes.length
         ? routes.map((route, index) => ({ route, index, fallback: false }))
@@ -11288,7 +11308,7 @@ measureBtn?.addEventListener('click', () => {
         const res = calculateRouteTime(r);
         const recognizeStats = getReportRecognizeStats(r);
 
-        const routeVisual = fallback ? buildReportRouteVisualSvg(-1) : buildReportRouteVisualSvg(i);
+        const routeVisual = reportCanvasVisual || (fallback ? buildReportRouteVisualSvg(-1) : buildReportRouteVisualSvg(i));
         const routeColor = routeColors[i % routeColors.length] || '#1176d4';
         const routeTitle = fallback ? '図面' : getReportRouteTitle(r, i);
 
@@ -11498,7 +11518,8 @@ measureBtn?.addEventListener('click', () => {
           height: 100%;
         }
         .route-image,
-        .route-svg {
+        .route-svg,
+        .report-canvas-image {
           max-width: 100%;
           max-height: 100%;
           object-fit: contain;
