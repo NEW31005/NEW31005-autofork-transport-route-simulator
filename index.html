@@ -2150,6 +2150,10 @@
       align-items: flex-start;
     }
 
+    #reportModal .report-preview.multi-page {
+      overflow-y: auto;
+    }
+
     #reportModal .report-preview .report-root {
       width: max-content;
       max-width: none;
@@ -2159,6 +2163,10 @@
 
     #reportModal .report-page {
       margin: 0 auto;
+    }
+
+    #reportModal .report-preview.multi-page .report-page + .report-page {
+      margin-top: 12px;
     }
 
     .export-image-modal { max-width: 560px; }
@@ -3809,8 +3817,8 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="btn" id="exportBtn">💾 保存</button>
           <button class="btn" id="importBtn">📂 読込</button>
           <input type="file" id="importInput" accept=".json" style="display: none;">
-          <button class="btn btn-primary" id="reportBtn">📄 レポート</button>
           <button class="btn btn-primary" id="canvasPngExportBtn">🖼 出力</button>
+          <button class="btn btn-primary" id="reportBtn">📄 レポート</button>
         </div>
       </div>
     </div>
@@ -4072,7 +4080,6 @@ body.stamp-modal-open header{ pointer-events: none; }
           <option value="l">A4横</option>
         </select>
         <button class="btn btn-primary" id="downloadPdfBtn">📑 PDF保存</button>
-        <button class="btn" id="reportDrawioBtn">📐 draw.io保存</button>
         <button class="btn btn-success" id="inquiryBtn">📧 問い合わせ</button>
       </div>
     </div>
@@ -11998,7 +12005,10 @@ measureBtn?.addEventListener('click', () => {
       const page = root?.querySelector('.report-page');
       if (!modal || !preview || !root || !page || !modal.classList.contains('active')) return;
 
+      const pageCount = root.querySelectorAll('.report-page').length;
+      preview.classList.toggle('multi-page', pageCount > 1);
       preview.style.setProperty('--report-preview-scale', '1');
+      preview.scrollTop = 0;
       requestAnimationFrame(() => {
         const availableW = Math.max(1, preview.clientWidth - 16);
         const availableH = Math.max(1, preview.clientHeight - 16);
