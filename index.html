@@ -6315,15 +6315,20 @@ function draw() {
       targetCtx.restore();
     }
 
-    function drawRouteLayersForPngExport(targetCtx, offset, z) {
+    function drawRouteLayersForPngExport(targetCtx, offset, z, options = {}) {
       const layerMode = state.layerMode ?? 3;
       const showTurn = layerMode >= 2;
       const showCorridor = layerMode >= 3;
+      const targetRouteIndex = Number.isInteger(options.routeIndex) && options.routeIndex >= 0 ? options.routeIndex : null;
       (state.routes || []).forEach((route, ri) => {
-        if (!isRouteVisible(ri)) return;
+        if (targetRouteIndex !== null) {
+          if (ri !== targetRouteIndex) return;
+        } else if (!isRouteVisible(ri)) {
+          return;
+        }
         if (!route || !Array.isArray(route.points) || route.points.length < 1) return;
         const color = routeColors[ri % routeColors.length];
-        const isActive = ri === state.activeRouteIndex;
+        const isActive = ri === state.activeRouteIndex || ri === targetRouteIndex;
 
         if (route.points.length >= 2) {
           const ROUTE_CENTERLINE_THICKNESS_M = 0.12;
@@ -6635,7 +6640,7 @@ function draw() {
       });
     }
 
-    function renderCanvasPngExport({ includeFloorplan = false, safeVectorOnly = false, hideTags = false, trimToFloorplan = false } = {}) {
+    function renderCanvasPngExport({ includeFloorplan = false, safeVectorOnly = false, hideTags = false, trimToFloorplan = false, routeIndex = null } = {}) {
       const exportCanvas = document.createElement('canvas');
       const z = state.zoom || 1;
       const useFloorplanTrim = includeFloorplan && trimToFloorplan && state.img;
@@ -6659,7 +6664,7 @@ function draw() {
         if (safeVectorOnly) drawSimpleHomeMarkerForPngExport(exportCtx, home, offset, z);
         else drawHomeMarker(exportCtx, home, offset, z, { isActive: false });
       });
-      drawRouteLayersForPngExport(exportCtx, offset, z);
+      drawRouteLayersForPngExport(exportCtx, offset, z, { routeIndex });
       (state.stations || []).forEach(station => {
         if (safeVectorOnly) drawSimpleStationMarkerForPngExport(exportCtx, station, offset, z, { hideTags });
         else drawStationMarker(exportCtx, station, offset, z, { isSelected: false, hideTags });
@@ -10718,14 +10723,15 @@ measureBtn?.addEventListener('click', () => {
       }
     }
 
-    function buildReportCanvasVisualHtml() {
+    function buildReportCanvasVisualHtml(routeIndex = null) {
       if (!hasReportCanvasContent()) return '';
       const makeImg = (src) => `<img class="route-image report-canvas-image" src="${src}" alt="キャンバス画像" />`;
       try {
         const sourceCanvas = renderCanvasPngExport({
           includeFloorplan: !!state.img,
           safeVectorOnly: false,
-          trimToFloorplan: true
+          trimToFloorplan: true,
+          routeIndex
         });
         return makeImg(sourceCanvas.toDataURL('image/png'));
       } catch (err) {
@@ -10734,7 +10740,8 @@ measureBtn?.addEventListener('click', () => {
           const sourceCanvas = renderCanvasPngExport({
             includeFloorplan: !!state.img,
             safeVectorOnly: true,
-            trimToFloorplan: true
+            trimToFloorplan: true,
+            routeIndex
           });
           return makeImg(sourceCanvas.toDataURL('image/png'));
         } catch (fallbackErr) {
@@ -11322,8 +11329,6 @@ measureBtn?.addEventListener('click', () => {
       const reflectivePoleReportRow = reflectivePoleCountForReport > 0
         ? `<tr><th>反射ポール設置数</th><td>${reflectivePoleCountForReport} 本</td></tr>`
         : '';
-      const reportCanvasVisual = buildReportCanvasVisualHtml();
-
       const routeEntries = routes.length
         ? routes.map((route, index) => ({ route, index, fallback: false }))
         : [{ route: { name: '図面', points: [], loadedSegments: [], recognizePaths: [], turn180Points: [] }, index: 0, fallback: true }];
@@ -11332,7 +11337,7 @@ measureBtn?.addEventListener('click', () => {
         const res = calculateRouteTime(r);
         const recognizeStats = getReportRecognizeStats(r);
 
-        const routeVisual = reportCanvasVisual || (fallback ? buildReportRouteVisualSvg(-1) : buildReportRouteVisualSvg(i));
+        const routeVisual = buildReportCanvasVisualHtml(fallback ? null : i) || (fallback ? buildReportRouteVisualSvg(-1) : buildReportRouteVisualSvg(i));
         const routeColor = routeColors[i % routeColors.length] || '#1176d4';
         const routeTitle = fallback ? '図面' : getReportRouteTitle(r, i);
 
