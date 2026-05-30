@@ -3229,7 +3229,7 @@ body.stamp-modal-open header{ pointer-events: none; }
         <div class="divider"></div>
 
 <div class="results-card">
-          <div class="results-title">選択ルート詳細</div>
+          <div class="results-title">搬送ルートの詳細</div>
           <div class="result-row">
             <span class="result-label">総距離</span>
             <span class="result-value" id="totalDistance">0 m</span>
@@ -6633,13 +6633,14 @@ function draw() {
       });
     }
 
-    function renderCanvasPngExport({ includeFloorplan = false, safeVectorOnly = false, hideTags = false } = {}) {
+    function renderCanvasPngExport({ includeFloorplan = false, safeVectorOnly = false, hideTags = false, trimToFloorplan = false } = {}) {
       const exportCanvas = document.createElement('canvas');
-      exportCanvas.width = Math.max(1, canvas.width);
-      exportCanvas.height = Math.max(1, canvas.height);
-      const exportCtx = exportCanvas.getContext('2d');
-      const offset = getImageOffset();
       const z = state.zoom || 1;
+      const useFloorplanTrim = includeFloorplan && trimToFloorplan && state.img;
+      exportCanvas.width = Math.max(1, Math.round(useFloorplanTrim ? state.imgWidth * z : canvas.width));
+      exportCanvas.height = Math.max(1, Math.round(useFloorplanTrim ? state.imgHeight * z : canvas.height));
+      const exportCtx = exportCanvas.getContext('2d');
+      const offset = useFloorplanTrim ? { x: 0, y: 0 } : getImageOffset();
 
       exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
       if (includeFloorplan) {
@@ -6716,8 +6717,11 @@ function draw() {
         if (isTransparent) {
           sourceCanvas = renderTransparentCanvasPngExport();
         } else {
-          draw();
-          sourceCanvas = canvas;
+          sourceCanvas = renderCanvasPngExport({
+            includeFloorplan: true,
+            safeVectorOnly: false,
+            trimToFloorplan: true
+          });
         }
         let blob;
         try {
@@ -6727,7 +6731,8 @@ function draw() {
           sourceCanvas = renderCanvasPngExport({
             includeFloorplan: !isTransparent,
             safeVectorOnly: true,
-            hideTags: isTransparent
+            hideTags: isTransparent,
+            trimToFloorplan: !isTransparent
           });
           blob = await canvasToPngBlob(sourceCanvas);
         }
