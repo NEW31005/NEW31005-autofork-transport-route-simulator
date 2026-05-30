@@ -13017,19 +13017,7 @@ measureBtn?.addEventListener('click', () => {
       const pageH = pdf.internal.pageSize.getHeight();
 
       const imgData = canvas.toDataURL('image/jpeg', 0.92);
-
-      // Fit while preserving aspect ratio
-      const imgH_byW = canvas.height * (pageW / canvas.width);
-      if (imgH_byW <= pageH) {
-        const y = (pageH - imgH_byW) / 2;
-        pdf.addImage(imgData, 'JPEG', 0, y, pageW, imgH_byW);
-        return;
-      }
-
-      // Too tall: fit by height
-      const imgW_byH = canvas.width * (pageH / canvas.height);
-      const x = (pageW - imgW_byH) / 2;
-      pdf.addImage(imgData, 'JPEG', x, 0, imgW_byH, pageH);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
     }
 
     // Alias: older name used in some handlers
