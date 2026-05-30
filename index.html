@@ -2957,8 +2957,8 @@
           padding: 0 34px;
           background-color: #061942;
           background-image: var(--report-header-portrait);
-          background-size: calc(100% + 2px) 100%;
-          background-position: left top;
+          background-size: 100% 100%;
+          background-position: center;
           background-repeat: no-repeat;
           border-bottom: 0;
           overflow: hidden;
@@ -3005,7 +3005,7 @@
           min-height: 74px;
           padding: 0 28px;
           background-image: var(--report-header-landscape);
-          background-size: calc(100% + 2px) 100%;
+          background-size: 100% 100%;
         }
         .report-page.landscape .report-document-title {
           font-size: 22px;
@@ -12826,8 +12826,8 @@ measureBtn?.addEventListener('click', () => {
           padding: 0 34px;
           background-color: #061942;
           background-image: var(--report-header-portrait);
-          background-size: calc(100% + 2px) 100%;
-          background-position: left top;
+          background-size: 100% 100%;
+          background-position: center;
           background-repeat: no-repeat;
           border-bottom: 0;
           overflow: hidden;
@@ -12874,7 +12874,7 @@ measureBtn?.addEventListener('click', () => {
           min-height: 74px;
           padding: 0 28px;
           background-image: var(--report-header-landscape);
-          background-size: calc(100% + 2px) 100%;
+          background-size: 100% 100%;
         }
         .report-page.landscape .report-document-title {
           font-size: 22px;
@@ -13016,8 +13016,8 @@ measureBtn?.addEventListener('click', () => {
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, pageW, pageH);
     }
 
     // Alias: older name used in some handlers
