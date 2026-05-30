@@ -10722,12 +10722,20 @@ measureBtn?.addEventListener('click', () => {
       if (!hasReportCanvasContent()) return '';
       const makeImg = (src) => `<img class="route-image report-canvas-image" src="${src}" alt="キャンバス画像" />`;
       try {
-        const sourceCanvas = renderCanvasPngExport({ includeFloorplan: !!state.img, safeVectorOnly: false });
+        const sourceCanvas = renderCanvasPngExport({
+          includeFloorplan: !!state.img,
+          safeVectorOnly: false,
+          trimToFloorplan: true
+        });
         return makeImg(sourceCanvas.toDataURL('image/png'));
       } catch (err) {
         console.warn('Report canvas image export fell back to safe renderer:', err);
         try {
-          const sourceCanvas = renderCanvasPngExport({ includeFloorplan: !!state.img, safeVectorOnly: true });
+          const sourceCanvas = renderCanvasPngExport({
+            includeFloorplan: !!state.img,
+            safeVectorOnly: true,
+            trimToFloorplan: true
+          });
           return makeImg(sourceCanvas.toDataURL('image/png'));
         } catch (fallbackErr) {
           console.warn('Report canvas image safe renderer failed:', fallbackErr);
