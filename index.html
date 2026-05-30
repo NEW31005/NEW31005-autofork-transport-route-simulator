@@ -3763,10 +3763,11 @@ body.stamp-modal-open header{ pointer-events: none; }
     const AUTOFORK_DETECTION_RANGE_M = 10;
     const AUTOFORK_DETECTION_REQUIRED_REFLECTIVE_POLES = 3;
     const AUTOFORK_DETECTION_ORIGIN_PX = { x: 1177, y: 491.5, w: 2398, h: 983 };
+    const REFLECTIVE_POLE_DETECTED_FILE = 'StampAssets/stamp_reflectivepoler_detected.png';
     const STAMP_DEFS = {
       autofork:        { label: "AutoFork",            file: "StampAssets/stamp_autofork.png",            wM: 2.398, hM: 0.983, rotatable: true },
       autofork_loaded: { label: "AutoFork積載",        file: "StampAssets/stamp_autofork_pallet.png",     wM: 2.456, hM: 1.095, rotatable: true },
-      reflective_pole: { label: "反射ポール",          file: "StampAssets/stamp_reflectivepoler.png",     worldW: 20, worldH: 20, rotatable: false, fixedScale: true },
+      reflective_pole: { label: "反射ポール",          file: "StampAssets/stamp_reflectivepoler.png", detectedFile: REFLECTIVE_POLE_DETECTED_FILE, worldW: 20, worldH: 20, rotatable: false, fixedScale: true },
       pallet:          { label: "パレット",              file: "StampAssets/stamp_pallet_1100.png",         wM: 1.1, hM: 1.1, rotatable: true },
       initial_position: { label: "初期位置",            file: "StampAssets/stamp_initial_pos_horizontal.png", wM: 1.283, hM: 2.698, rotatable: true },
       arrow_01:        { label: "矢印 01",              file: "StampAssets/stamp_arrow_01.png",            worldW: 533, worldH: 431, rotatable: true, defaultScale: 0.1, scaleMin: 0.05, scaleMax: 0.4, scaleStep: 0.01 },
@@ -3839,12 +3840,14 @@ function getStampDef(stampOrType) {
       window.__STAMP_IMAGES_LOADED__ = true;
 
       Object.values(STAMP_DEFS).forEach(def => {
-        if (stampImages[def.file]) return;
-        const img = createCanvasSafeImage();
-        img.onload = () => { requestRedraw(); };
-        img.onerror = () => { /* ignore */ };
-        img.src = def.file;
-        stampImages[def.file] = img;
+        [def.file, def.detectedFile].filter(Boolean).forEach(file => {
+          if (stampImages[file]) return;
+          const img = createCanvasSafeImage();
+          img.onload = () => { requestRedraw(); };
+          img.onerror = () => { /* ignore */ };
+          img.src = file;
+          stampImages[file] = img;
+        });
       });
     }
 
@@ -5411,6 +5414,54 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       };
     }
 
+    function getReflectivePolesInDetectionRange(center, radiusWorld) {
+      if (!center || !Number.isFinite(radiusWorld)) return [];
+      const stamps = Array.isArray(state.stamps) ? state.stamps : [];
+      const limit = radiusWorld + 1e-6;
+      return stamps.filter(stamp => {
+        if (!isReflectivePoleStamp(stamp)) return false;
+        const dx = Number(stamp.x) - center.x;
+        const dy = Number(stamp.y) - center.y;
+        return Number.isFinite(dx) && Number.isFinite(dy) && Math.hypot(dx, dy) <= limit;
+      });
+    }
+
+    function addReflectivePolesInDetectionRange(targetSet, center, radiusWorld) {
+      getReflectivePolesInDetectionRange(center, radiusWorld).forEach(stamp => targetSet.add(stamp));
+    }
+
+    function getRouteDemoCurrentDetectionCenterWorld() {
+      if (state.routeDemoDetectionRange !== true || !state.metersPerPixel) return null;
+      const demo = state.routeDemo;
+      if (!demo || !demo.running || !Number.isInteger(demo.routeIndex)) return null;
+      if (!isRouteVisible(demo.routeIndex)) return null;
+      const route = state.routes?.[demo.routeIndex];
+      if (!route || !Array.isArray(route.points) || route.points.length < 2) return null;
+      const pose = computeDemoPose(route, demo.dist || 0);
+      if (!pose) return null;
+      const loaded = isLoadedAt(route, pose.segIndex);
+      const origin = loaded ? routeDemoDetectionOrigins.loaded : routeDemoDetectionOrigins.empty;
+      const wWorld = (origin.w / 1000) / state.metersPerPixel;
+      const hWorld = (origin.h / 1000) / state.metersPerPixel;
+      return getRouteDemoDetectionCenterWorld(pose, loaded, wWorld, hWorld);
+    }
+
+    function buildDetectedReflectivePoleSet(options = {}) {
+      const detected = new Set();
+      if (!state.metersPerPixel) return detected;
+      const radiusWorld = AUTOFORK_DETECTION_RANGE_M / state.metersPerPixel;
+      (state.stamps || []).forEach(stamp => {
+        if (!isAutoForkDetectionRangeOn(stamp)) return;
+        const size = getStampBaseSizeWorld(stamp);
+        const center = getAutoForkDetectionCenterWorld(stamp, size);
+        addReflectivePolesInDetectionRange(detected, center, radiusWorld);
+      });
+      if (options.includeRouteDemo !== false) {
+        addReflectivePolesInDetectionRange(detected, getRouteDemoCurrentDetectionCenterWorld(), radiusWorld);
+      }
+      return detected;
+    }
+
     function drawAutoForkDetectionRange(targetCtx, stamp, offset, z, baseSize = null) {
       if (!state.metersPerPixel || !isAutoForkDetectionRangeOn(stamp)) return;
       const center = getAutoForkDetectionCenterWorld(stamp, baseSize);
@@ -5480,11 +5531,16 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       if (!state.metersPerPixel) return;
       if (!state.stamps || state.stamps.length === 0) return;
       normalizeReflectivePoleNumbers();
+      const detectedReflectivePoles = buildDetectedReflectivePoleSet({ includeRouteDemo: !forReport });
 
       for (const s of state.stamps) {
         const def = getStampDef(s);
         if (!def) continue;
-        const img = stampImages[def.file];
+        const imageFile = (isReflectivePoleStamp(s) && detectedReflectivePoles.has(s) && def.detectedFile) ? def.detectedFile : def.file;
+        let img = stampImages[imageFile];
+        if ((!img || !img.complete || !(img.naturalWidth || img.width)) && imageFile !== def.file) {
+          img = stampImages[def.file];
+        }
         if (!img || !img.complete) continue;
 
         const baseSize = getStampBaseSizeWorld(s);
@@ -11052,8 +11108,12 @@ measureBtn?.addEventListener('click', () => {
         const file = String(def?.file || '').toLowerCase();
         const sw = Math.max(2, Math.min(w, h) * 0.05);
         if (file.includes('stamp_reflectivepoler')) {
+          const detected = file.includes('detected');
           const r = Math.min(w, h) * 0.42;
           const ringW = Math.max(sw * 2.4, Math.min(w, h) * 0.14);
+          if (detected) {
+            return `<g><circle cx="0" cy="0" r="${reportSvgNum(r)}" fill="rgba(34,197,94,0.82)" stroke="#14532d" stroke-width="${reportSvgNum(ringW)}" /><circle cx="${reportSvgNum(-r * 0.28)}" cy="${reportSvgNum(-r * 0.28)}" r="${reportSvgNum(r * 0.18)}" fill="#bbf7d0" opacity="0.9" /></g>`;
+          }
           return `<g><circle cx="0" cy="0" r="${reportSvgNum(r)}" fill="rgba(148,138,138,0.62)" stroke="#0b4fd6" stroke-width="${reportSvgNum(ringW)}" /><circle cx="${reportSvgNum(-r * 0.28)}" cy="${reportSvgNum(-r * 0.28)}" r="${reportSvgNum(r * 0.18)}" fill="#69d7ff" opacity="0.75" /></g>`;
         }
         if (file.includes('stamp_crossmark')) {
@@ -11098,6 +11158,7 @@ measureBtn?.addEventListener('click', () => {
         svg.push(`<g transform="${transform}"><image href="${safeHref}" xlink:href="${safeHref}" x="${reportSvgNum(-w / 2)}" y="${reportSvgNum(-h / 2)}" width="${reportSvgNum(w)}" height="${reportSvgNum(h)}" preserveAspectRatio="xMidYMid meet" ${extra} /></g>`);
       }
 
+      const reportDetectedReflectivePoles = buildDetectedReflectivePoleSet({ includeRouteDemo: false });
       (state.stamps || []).forEach(stamp => {
         const def = getStampDef(stamp);
         const size = getStampBaseSizeWorld(stamp);
@@ -11112,10 +11173,16 @@ measureBtn?.addEventListener('click', () => {
           if (center) {
             const p = toSvgPoint(center.x, center.y);
             const radius = AUTOFORK_DETECTION_RANGE_M / mpp;
-            svg.push(`<circle cx="${reportSvgNum(p.x)}" cy="${reportSvgNum(p.y)}" r="${reportSvgNum(radius)}" fill="rgba(59,130,246,0.16)" stroke="rgba(37,99,235,0.72)" stroke-width="${reportSvgNum(Math.max(2, radius * 0.008))}" />`);
+            const hasEnoughPoles = countReflectivePolesInDetectionRange(center, radius) >= AUTOFORK_DETECTION_REQUIRED_REFLECTIVE_POLES;
+            const fill = hasEnoughPoles ? 'rgba(59,130,246,0.16)' : 'rgba(239,68,68,0.16)';
+            const stroke = hasEnoughPoles ? 'rgba(37,99,235,0.72)' : 'rgba(220,38,38,0.72)';
+            svg.push(`<circle cx="${reportSvgNum(p.x)}" cy="${reportSvgNum(p.y)}" r="${reportSvgNum(radius)}" fill="${fill}" stroke="${stroke}" stroke-width="${reportSvgNum(Math.max(2, radius * 0.008))}" />`);
           }
         }
-        addReportSvgImage(def, stamp.x, stamp.y, size.w, size.h, getStampRotationDeg(stamp), getStampFlipX(stamp), getStampFlipY(stamp));
+        const stampDef = (isReflectivePoleStamp(stamp) && reportDetectedReflectivePoles.has(stamp) && def.detectedFile)
+          ? { ...def, file: def.detectedFile }
+          : def;
+        addReportSvgImage(stampDef, stamp.x, stamp.y, size.w, size.h, getStampRotationDeg(stamp), getStampFlipX(stamp), getStampFlipY(stamp));
       });
 
       (state.homePositions || []).forEach(home => {
@@ -11208,6 +11275,10 @@ measureBtn?.addEventListener('click', () => {
       const scaleText = mpp ? `1px = ${(mpp * 100).toFixed(2)}cm` : '未設定';
       const imageText = state.img ? escapeHtml(state.imgName || '読み込み済み') : 'なし';
       await waitForReportStampImagesLoaded();
+      const reflectivePoleCountForReport = getReflectivePoleStamps().length;
+      const reflectivePoleReportRow = reflectivePoleCountForReport > 0
+        ? `<tr><th>反射ポール設置数</th><td>${reflectivePoleCountForReport} 本</td></tr>`
+        : '';
 
       const routeEntries = routes.length
         ? routes.map((route, index) => ({ route, index, fallback: false }))
@@ -11267,6 +11338,7 @@ measureBtn?.addEventListener('click', () => {
                 </div>
                 <table>
                   <tr><th>ステーション数</th><td>${(state.stations || []).length} 箇所</td></tr>
+                  ${reflectivePoleReportRow}
                   <tr><th>荷積み</th><td>${res.totalLoadingCount || 0} 箇所</td></tr>
                   <tr><th>荷下ろし</th><td>${res.totalUnloadingCount || 0} 箇所</td></tr>
                   <tr><th>ルート距離</th><td>${formatNumber(res.distance || 0)} m</td></tr>
@@ -12351,18 +12423,7 @@ measureBtn?.addEventListener('click', () => {
     }
 
     function countReflectivePolesInDetectionRange(center, radiusWorld) {
-      if (!center || !Number.isFinite(radiusWorld)) return 0;
-      const stamps = Array.isArray(state.stamps) ? state.stamps : [];
-      const limit = radiusWorld + 1e-6;
-      let count = 0;
-      for (const stamp of stamps) {
-        if (!isReflectivePoleStamp(stamp)) continue;
-        const dx = Number(stamp.x) - center.x;
-        const dy = Number(stamp.y) - center.y;
-        if (!Number.isFinite(dx) || !Number.isFinite(dy)) continue;
-        if (Math.hypot(dx, dy) <= limit) count++;
-      }
-      return count;
+      return getReflectivePolesInDetectionRange(center, radiusWorld).length;
     }
 
     function drawRouteDemoVehicleDetectionRange(targetCtx, pose, loaded, wWorld, hWorld, offset, z) {
