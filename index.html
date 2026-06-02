@@ -2365,6 +2365,14 @@
         display: none;
       }
 
+      .side-panel:not(.right) .mobile-controls-hidden {
+        display: none !important;
+      }
+
+      .side-panel:not(.right) #stampSettings.mobile-controls-hidden + .divider {
+        display: none !important;
+      }
+
       .help-box,
       .results-card,
       .accordion,
@@ -3939,18 +3947,18 @@ body.stamp-modal-open header{ pointer-events: none; }
 
         </div>
 
-        <div class="warning-box" id="scaleWarning">
+        <div class="warning-box mobile-controls-hidden" id="scaleWarning">
           ⚠️ 先に縮尺を設定してください
         </div>
 
-        <div class="file-upload" id="fileUpload">
+        <div class="file-upload mobile-controls-hidden" id="fileUpload">
           <input type="file" id="fileInput" accept="image/*,.pdf">
           <div class="file-upload-icon">📁</div>
           <div class="file-upload-text">図面・写真をドロップ</div>
           <div class="file-upload-hint">PNG / JPG / PDF</div>
         </div>
 
-        <div class="loaded-file-card" id="loadedFileCard" hidden>
+        <div class="loaded-file-card mobile-controls-hidden" id="loadedFileCard" hidden>
           <div class="loaded-file-meta">
             <div class="loaded-file-label">読み込み済み図面</div>
             <div class="loaded-file-name" id="loadedFileName">-</div>
@@ -3958,10 +3966,10 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="btn btn-secondary loaded-file-delete" id="loadedFileDeleteBtn" type="button">削除</button>
         </div>
 
-        <div class="divider"></div>
+        <div class="divider mobile-controls-hidden"></div>
 
-        <div class="section-title">編集モード</div>
-        <div class="mode-selector">
+        <div class="section-title mobile-controls-hidden">編集モード</div>
+        <div class="mode-selector mobile-controls-hidden">
           <div class="mode-btn active" data-mode="scale">
             <div class="mode-btn-icon">📏</div>
             縮尺
@@ -3985,7 +3993,7 @@ body.stamp-modal-open header{ pointer-events: none; }
         </div>
 
         <!-- Route Sub Modes -->
-        <div id="routeSubModes" style="display: none;">
+        <div id="routeSubModes" class="mobile-controls-hidden" style="display: none;">
           <div class="mode-selector sub">
             <div class="mode-btn active" data-submode="draw">
               <div class="mode-btn-icon">✏️</div>
@@ -4006,7 +4014,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           </div>
         </div>
 
-        <div id="scaleSettings">
+        <div id="scaleSettings" class="mobile-controls-hidden">
           <!-- ③ 入力欄は非表示（ポップアップで入力するため）、ロジック用に残す -->
           <div class="form-group" style="display: none;">
             <label class="form-label">実距離（m）</label>
@@ -4020,7 +4028,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           </p>
         </div>
 
-        <div id="homeSettings" style="display: none;">
+        <div id="homeSettings" class="mobile-controls-hidden" style="display: none;">
           <p style="font-size: 10px; color: var(--gray-600);">
             🏠 図面上をクリックでAutoFork初期位置を設定
           </p>
@@ -4070,7 +4078,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           </div>
         </div>
 
-        <div id="stationSettings" style="display: none;">
+        <div id="stationSettings" class="mobile-controls-hidden" style="display: none;">
           <p style="font-size: 10px; color: var(--gray-600); margin-bottom: 8px;">
             📍 空き場所クリックで追加／既存ステーションをクリックで選択／ダブルクリックで編集
           </p>
@@ -4169,7 +4177,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           </div>
         </div>
 
-        <div id="routeSettings" style="display: none;">
+        <div id="routeSettings" class="mobile-controls-hidden" style="display: none;">
           <div class="btn-group" style="margin-bottom: 8px;">
             <button class="btn btn-primary" id="addRouteBtn" style="flex: 1;">+ 新規ルート</button>
           </div>
@@ -4241,7 +4249,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           </div>
         </div>
 
-        <div id="stampSettings" style="display:none;">
+        <div id="stampSettings" class="mobile-controls-hidden" style="display:none;">
           <h3 class="section-title">スタンプ</h3>
           <div class="form-group">
             <label class="form-label">種類</label>
