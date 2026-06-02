@@ -2084,6 +2084,352 @@
       }
     }
 
+    /* Mobile prototype: canvas-first layout with bottom controls and slide-up panels */
+    .mobile-panel-overlay,
+    .mobile-bottom-nav,
+    .mobile-route-subnav {
+      display: none;
+    }
+
+    @media (max-width: 760px) {
+      html, body {
+        width: 100%;
+        min-height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
+      .header {
+        height: 64px;
+      }
+
+      .header::before {
+        left: 12px;
+        right: 12px;
+        top: 6px;
+      }
+
+      .header::after {
+        left: 12px;
+        right: 12px;
+        bottom: 6px;
+      }
+
+      .header-content {
+        padding: 0 10px;
+        gap: 8px;
+      }
+
+      .logo {
+        gap: 10px;
+      }
+
+      .logo-icon {
+        width: 98px;
+        height: 42px;
+        filter: drop-shadow(0 2px 4px rgba(0, 32, 82, 0.28));
+      }
+
+      .logo-title {
+        font-size: 18px;
+        min-height: 36px;
+        line-height: 1.05;
+        white-space: normal;
+        overflow: visible;
+      }
+
+      .header-actions {
+        display: none;
+      }
+
+      .main-container {
+        height: calc(100vh - 64px);
+        height: calc(100dvh - 64px);
+        margin-top: 64px;
+        display: block;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .canvas-area {
+        width: 100%;
+        height: 100%;
+        padding-bottom: 92px;
+      }
+
+      .canvas-scroll-container {
+        height: 100%;
+        overflow: auto;
+        overscroll-behavior: contain;
+      }
+
+      #mainCanvas {
+        touch-action: none;
+      }
+
+      .canvas-hint {
+        top: 8px;
+        left: 8px;
+        right: 58px;
+        max-width: none;
+        font-size: 11px;
+        padding: 7px 9px;
+        line-height: 1.35;
+      }
+
+      .canvas-controls {
+        top: 8px;
+        right: 8px;
+        gap: 6px;
+      }
+
+      .canvas-ctrl-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        font-size: 20px;
+      }
+
+      .zoom-level {
+        min-width: 44px;
+        padding: 5px 3px;
+        font-size: 10px;
+      }
+
+      .mobile-panel-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        z-index: 1190;
+        background: rgba(15, 23, 42, 0.36);
+        backdrop-filter: blur(2px);
+      }
+
+      body.mobile-left-open .mobile-panel-overlay,
+      body.mobile-right-open .mobile-panel-overlay {
+        display: block;
+      }
+
+      .side-panel,
+      .side-panel.right {
+        display: flex !important;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+        top: auto;
+        z-index: 1200;
+        width: 100%;
+        min-width: 0;
+        height: min(68vh, 640px);
+        height: min(68dvh, 640px);
+        max-height: calc(100vh - 150px);
+        max-height: calc(100dvh - 150px);
+        border: 0;
+        border-radius: 22px;
+        box-shadow: 0 -18px 44px rgba(15, 23, 42, 0.28);
+        transform: translateY(106%);
+        transition: transform 0.24s ease;
+      }
+
+      body.mobile-left-open .side-panel:not(.right),
+      body.mobile-right-open .side-panel.right {
+        transform: translateY(0);
+      }
+
+      .panel-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 14px 16px 12px;
+        border-radius: 22px 22px 0 0;
+      }
+
+      .panel-title {
+        font-size: 15px;
+      }
+
+      .panel-body {
+        padding: 14px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .help-box,
+      .results-card,
+      .accordion,
+      .loaded-file-card,
+      .file-upload {
+        border-radius: 14px;
+      }
+
+      .form-label,
+      .section-title,
+      .results-title {
+        font-size: 11px;
+      }
+
+      .help-box ol,
+      .help-box-desc,
+      .howto-body,
+      .warning-box,
+      .disclaimer,
+      .result-label,
+      .list-sub {
+        font-size: 12px;
+      }
+
+      .form-input,
+      .form-select,
+      .form-input-small,
+      .pdf-orientation-select,
+      input,
+      select,
+      textarea {
+        font-size: 16px;
+      }
+
+      .btn,
+      .mode-btn,
+      .route-demo-btn,
+      .count-btn,
+      .direction-btn,
+      .canvas-ctrl-btn,
+      .mobile-bottom-nav button,
+      .mobile-route-subnav button {
+        min-height: 44px;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .mode-selector {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .mode-selector.sub {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .mode-btn {
+        padding: 9px 5px;
+        font-size: 11px;
+      }
+
+      .mode-btn-icon {
+        font-size: 18px;
+      }
+
+      .list-item {
+        min-height: 54px;
+        padding: 10px;
+      }
+
+      .list-name {
+        font-size: 14px;
+      }
+
+      .list-delete,
+      .list-solo {
+        width: 38px;
+        height: 38px;
+      }
+
+      .mobile-bottom-nav {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        z-index: 1225;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 5px;
+        overflow: hidden;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.22);
+        backdrop-filter: blur(12px);
+      }
+
+      .mobile-bottom-nav button,
+      .mobile-route-subnav button {
+        border: 1px solid #dbe4ef;
+        border-radius: 14px;
+        background: #ffffff;
+        color: #334155;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.15;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+      }
+
+      .mobile-bottom-nav button strong,
+      .mobile-route-subnav button strong {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .mobile-bottom-nav button.active,
+      .mobile-route-subnav button.active {
+        background: linear-gradient(135deg, var(--hakuou-blue), var(--hakuou-blue-light));
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(0, 82, 154, 0.28);
+      }
+
+      .mobile-bottom-nav button.panel-active {
+        background: #e8f4fd;
+        border-color: rgba(0, 82, 154, 0.45);
+        color: var(--hakuou-blue);
+      }
+
+      .mobile-route-subnav {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+        z-index: 1224;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        padding: 7px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(10px);
+      }
+
+      .mobile-route-subnav[hidden] {
+        display: none !important;
+      }
+
+      .modal-overlay {
+        padding: 10px;
+      }
+
+      .modal {
+        width: min(100%, 420px);
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+      }
+
+      #stampModalPanel {
+        left: 10px;
+        right: 10px;
+        top: 76px;
+        width: auto;
+        max-height: calc(100vh - 96px);
+        max-height: calc(100dvh - 96px);
+      }
+    }
+
 
     .pdf-orientation-select{
       height: 36px;
@@ -3216,6 +3562,31 @@ body.stamp-modal-open header{ pointer-events: none; }
     /* Safety: keep side panels above the canvas if stacking ever overlaps */
     .side-panel{ position: relative; z-index: 2; }
     .canvas-area{ position: relative; z-index: 1; }
+
+    @media (max-width: 760px) {
+      .side-panel,
+      .side-panel.right {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+        top: auto;
+        z-index: 1200;
+        width: 100%;
+        min-width: 0;
+        height: min(68vh, 640px);
+        height: min(68dvh, 640px);
+        max-height: calc(100vh - 150px);
+        max-height: calc(100dvh - 150px);
+        transform: translateY(106%);
+      }
+
+      .canvas-area {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+      }
+    }
 </style>
 </head>
 <body>
@@ -3984,6 +4355,23 @@ body.stamp-modal-open header{ pointer-events: none; }
     </div>
   </div>
 
+  <div class="mobile-panel-overlay" id="mobilePanelOverlay" aria-hidden="true"></div>
+  <nav class="mobile-route-subnav" id="mobileRouteSubnav" aria-label="ルート編集サブモード" hidden>
+    <button type="button" data-mobile-submode="draw"><strong>✏</strong><span>描画</span></button>
+    <button type="button" data-mobile-submode="loaded"><strong>📦</strong><span>積載</span></button>
+    <button type="button" data-mobile-submode="recognize"><strong>👁</strong><span>認識</span></button>
+    <button type="button" data-mobile-submode="turn180"><strong>↻</strong><span>180°</span></button>
+  </nav>
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="モバイル操作">
+    <button type="button" id="mobileOpenControls"><strong>☰</strong><span>操作</span></button>
+    <button type="button" data-mobile-mode="scale"><strong>📏</strong><span>縮尺</span></button>
+    <button type="button" data-mobile-mode="home"><strong>🏠</strong><span>初期</span></button>
+    <button type="button" data-mobile-mode="station"><strong>📍</strong><span>ST</span></button>
+    <button type="button" data-mobile-mode="route"><strong>🛤</strong><span>ルート</span></button>
+    <button type="button" data-mobile-mode="stamp"><strong>🏷</strong><span>スタンプ</span></button>
+    <button type="button" id="mobileOpenResults"><strong>📊</strong><span>結果</span></button>
+  </nav>
+
   <!-- ③ Scale Modal -->
   <div class="modal-overlay" id="scaleModal">
     <div class="modal" style="max-width: 320px;">
@@ -4542,6 +4930,12 @@ function getStampDef(stampOrType) {
     const loadedFileDeleteBtn = document.getElementById('loadedFileDeleteBtn');
     const modeButtons = document.querySelectorAll('.mode-selector:not(.sub) .mode-btn');
     const subModeButtons = document.querySelectorAll('.mode-selector.sub .mode-btn');
+    const mobilePanelOverlay = document.getElementById('mobilePanelOverlay');
+    const mobileOpenControlsBtn = document.getElementById('mobileOpenControls');
+    const mobileOpenResultsBtn = document.getElementById('mobileOpenResults');
+    const mobileModeButtons = document.querySelectorAll('[data-mobile-mode]');
+    const mobileSubModeButtons = document.querySelectorAll('[data-mobile-submode]');
+    const mobileRouteSubnav = document.getElementById('mobileRouteSubnav');
     const scaleWarning = document.getElementById('scaleWarning');
     const snapCheckboxes = [
       document.getElementById('stationSnapCheckbox'),
@@ -5435,6 +5829,45 @@ function openStampModal(){
       }
     }
 
+    function closeMobilePanels() {
+      document.body.classList.remove('mobile-left-open', 'mobile-right-open');
+      mobileOpenControlsBtn?.classList.remove('panel-active');
+      mobileOpenResultsBtn?.classList.remove('panel-active');
+    }
+
+    function openMobilePanel(kind) {
+      const left = kind === 'left';
+      const right = kind === 'right';
+      document.body.classList.toggle('mobile-left-open', left);
+      document.body.classList.toggle('mobile-right-open', right);
+      mobileOpenControlsBtn?.classList.toggle('panel-active', left);
+      mobileOpenResultsBtn?.classList.toggle('panel-active', right);
+    }
+
+    function syncMobileModeUI() {
+      mobileModeButtons.forEach(btn => {
+        const mode = btn.dataset.mobileMode;
+        const disabled = !canUseMode(mode) && !(mode === 'scale' && !state.img);
+        btn.classList.toggle('active', mode === state.currentMode);
+        btn.disabled = disabled;
+        btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        btn.title = disabled ? getModeDisabledReason(mode) : '';
+      });
+
+      if (mobileRouteSubnav) {
+        mobileRouteSubnav.hidden = state.currentMode !== 'route';
+      }
+
+      mobileSubModeButtons.forEach(btn => {
+        const subMode = btn.dataset.mobileSubmode;
+        const disabled = !canUseMode('route');
+        btn.classList.toggle('active', subMode === state.routeSubMode);
+        btn.disabled = disabled;
+        btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        btn.title = disabled ? getModeDisabledReason('route') : '';
+      });
+    }
+
     function syncModePanelVisibility() {
       modeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === state.currentMode));
       Object.keys(settingsPanels).forEach(key => {
@@ -5442,6 +5875,7 @@ function openStampModal(){
       });
       const subModes = document.getElementById('routeSubModes');
       if (subModes) subModes.style.display = (state.currentMode === 'route') ? 'block' : 'none';
+      syncMobileModeUI();
     }
 
     function updateWorkflowLocks() {
@@ -5472,6 +5906,7 @@ function openStampModal(){
       setWorkflowDisabled(document.getElementById('textToolBtn'), !state.metersPerPixel, state.img ? '先に縮尺を設定してください' : '先に図面を読み込んでください');
       setWorkflowDisabled(cropBtn, !state.img, '先に図面を読み込んでください');
       updateRouteDemoControlUI();
+      syncMobileModeUI();
     }
 
     function markUIDirty() {
@@ -8056,6 +8491,7 @@ function draw() {
       });
       updateSubModeUI();
       updateHint();
+      syncMobileModeUI();
       draw();
     }
 
@@ -8085,6 +8521,43 @@ function draw() {
       }
       setRouteSubMode(btn.dataset.submode);
     }));
+
+    mobileOpenControlsBtn?.addEventListener('click', () => {
+      if (document.body.classList.contains('mobile-left-open')) closeMobilePanels();
+      else openMobilePanel('left');
+    });
+    mobileOpenResultsBtn?.addEventListener('click', () => {
+      if (document.body.classList.contains('mobile-right-open')) closeMobilePanels();
+      else openMobilePanel('right');
+    });
+    mobilePanelOverlay?.addEventListener('click', closeMobilePanels);
+    mobileModeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mobileMode;
+        if (!canUseMode(mode) && !(mode === 'scale' && !state.img)) {
+          showToast(getModeDisabledReason(mode), 'warning');
+          return;
+        }
+        closeMobilePanels();
+        setMode(mode);
+      });
+    });
+    mobileSubModeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!canUseMode('route')) {
+          showToast(getModeDisabledReason('route'), 'warning');
+          return;
+        }
+        setRouteSubMode(btn.dataset.mobileSubmode);
+      });
+    });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 760) closeMobilePanels();
+      requestAnimationFrame(() => {
+        setupCanvas();
+        if (state.img) centerCanvas();
+      });
+    });
 
     // Stamp UI
     /* preloadStampImages() is called lazily when opening the stamp modal */
