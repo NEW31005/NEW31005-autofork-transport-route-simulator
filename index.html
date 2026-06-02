@@ -3518,12 +3518,15 @@ body.stamp-modal-open header{ pointer-events: none; }
                     <option value="down">下</option>
                     <option value="up">上</option>
                   </select>
-                  <input type="number" class="form-input" id="stationArrayDistanceMm" value="150" min="0" step="1" title="隙間(mm)">
+                  <div style="position:relative;">
+                    <input type="number" class="form-input" id="stationArrayDistanceMm" value="15" min="0" step="1" title="間隔(cm)" style="padding-right:34px;">
+                    <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:var(--gray-500);pointer-events:none;">cm</span>
+                  </div>
                   <input type="number" class="form-input" id="stationArrayCount" value="1" min="1" step="1" title="追加数">
-                  <button type="button" class="btn btn-primary" id="stationArrayPlaceBtn">その通りに設置</button>
+                  <button type="button" class="btn btn-primary" id="stationArrayPlaceBtn">連続配置</button>
                 </div>
                 <p style="font-size: 9px; color: var(--gray-500); margin-top: 6px;">
-                  選択中ステーションの設定を引き継ぎ、指定方向へ「ステーション同士の隙間mm」を空けて追加します
+                  選択されたステーションより、指定方向へ指定した間隔で指定した数量のステーションを連続設置します。
                 </p>
               </div>
             </details>
@@ -10187,8 +10190,9 @@ function handleStampClick(wp) {
 
       const count = Math.max(1, Math.floor(Number(stationArrayCount?.value) || 1));
       const direction = stationArrayDirection?.value || 'right';
-      const gapInput = Number(stationArrayDistanceMm?.value);
-      const gapMm = Number.isFinite(gapInput) ? Math.max(0, gapInput) : 150;
+      const gapInputCm = Number(stationArrayDistanceMm?.value);
+      const gapCm = Number.isFinite(gapInputCm) ? Math.max(0, gapInputCm) : 15;
+      const gapMm = gapCm * 10;
       const spacingWorld = getStationArrayStepWorld(base, direction, gapMm);
       const vectors = {
         right: { x: 1, y: 0 },
