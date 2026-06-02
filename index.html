@@ -2087,7 +2087,10 @@
     /* Mobile prototype: canvas-first layout with bottom controls and slide-up panels */
     .mobile-panel-overlay,
     .mobile-bottom-nav,
-    .mobile-route-subnav {
+    .mobile-route-subnav,
+    .mobile-canvas-upload,
+    .mobile-help-btn,
+    .mobile-help-popover {
       display: none;
     }
 
@@ -2157,6 +2160,57 @@
         padding-bottom: 92px;
       }
 
+      .mobile-canvas-upload {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 24;
+        transform: translate(-50%, -50%);
+        width: min(86vw, 360px);
+        min-height: 132px;
+        padding: 22px 18px;
+        border: 2px solid rgba(0, 82, 154, 0.18);
+        border-radius: 22px;
+        background: linear-gradient(180deg, #ffffff 0%, #f0f8ff 100%);
+        color: #0f355f;
+        box-shadow: 0 20px 44px rgba(15, 23, 42, 0.2);
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 7px;
+        text-align: center;
+        font-family: var(--font-sans);
+        font-weight: 900;
+      }
+
+      .mobile-canvas-upload:not([hidden]) {
+        display: flex;
+      }
+
+      .mobile-canvas-upload-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--hakuou-blue), var(--hakuou-blue-light));
+        color: #ffffff;
+        font-size: 26px;
+        box-shadow: 0 12px 26px rgba(0, 82, 154, 0.28);
+      }
+
+      .mobile-canvas-upload-title {
+        font-size: 18px;
+        line-height: 1.35;
+      }
+
+      .mobile-canvas-upload-sub {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 800;
+      }
+
       .canvas-scroll-container {
         height: 100%;
         overflow: auto;
@@ -2188,6 +2242,26 @@
         height: 44px;
         border-radius: 14px;
         font-size: 20px;
+      }
+
+      .mobile-help-btn {
+        display: flex;
+        font-size: 18px;
+      }
+
+      .mobile-help-btn.active {
+        background: var(--hakuou-blue);
+        border-color: var(--hakuou-blue);
+        color: #ffffff;
+      }
+
+      body.mobile-help-open .canvas-controls {
+        z-index: 1270;
+        pointer-events: none;
+      }
+
+      body.mobile-help-open .mobile-help-btn {
+        pointer-events: auto;
       }
 
       .zoom-level {
@@ -2252,6 +2326,10 @@
       .panel-body {
         padding: 14px;
         -webkit-overflow-scrolling: touch;
+      }
+
+      .side-panel:not(.right) .help-box {
+        display: none;
       }
 
       .help-box,
@@ -2408,6 +2486,121 @@
 
       .mobile-route-subnav[hidden] {
         display: none !important;
+      }
+
+      .mobile-help-popover {
+        position: fixed;
+        inset: 0;
+        z-index: 1260;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(15, 23, 42, 0.34);
+        backdrop-filter: blur(3px);
+      }
+
+      .mobile-help-popover.active {
+        display: flex;
+      }
+
+      .mobile-help-card {
+        width: min(92vw, 420px);
+        max-height: min(72vh, 620px);
+        max-height: min(72dvh, 620px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border-radius: 22px;
+        background: #ffffff;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+      }
+
+      .mobile-help-popover-btn {
+        position: fixed;
+        z-index: 4;
+        display: flex;
+        background: var(--hakuou-blue);
+        border-color: var(--hakuou-blue);
+        color: #ffffff;
+      }
+
+      .mobile-help-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .mobile-help-title {
+        color: #111827;
+        font-size: 17px;
+        font-weight: 900;
+      }
+
+      .mobile-help-close {
+        width: 38px;
+        height: 38px;
+        border: 0;
+        border-radius: 12px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .mobile-help-body {
+        overflow: auto;
+        padding: 14px 18px 18px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .mobile-help-section {
+        padding: 12px 0;
+        border-bottom: 1px solid #eef2f7;
+      }
+
+      .mobile-help-section:first-child {
+        padding-top: 0;
+      }
+
+      .mobile-help-section:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .mobile-help-section-title {
+        color: var(--hakuou-blue);
+        font-size: 14px;
+        font-weight: 900;
+        line-height: 1.45;
+        margin-bottom: 6px;
+      }
+
+      .mobile-help-list {
+        margin: 0;
+        padding-left: 18px;
+        color: #334155;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .mobile-help-list li {
+        margin-bottom: 5px;
+      }
+
+      .mobile-help-note {
+        margin-top: 8px;
+        padding: 9px 10px;
+        border: 1px solid #fed7aa;
+        border-radius: 10px;
+        background: #fff7ed;
+        color: #9a3412;
+        font-size: 12px;
+        line-height: 1.6;
+        font-weight: 800;
       }
 
       .modal-overlay {
@@ -4204,6 +4397,11 @@ body.stamp-modal-open header{ pointer-events: none; }
           <canvas id="mainCanvas"></canvas>
         </div>
       </div>
+      <button class="mobile-canvas-upload" id="mobileCanvasUploadBtn" type="button" hidden>
+        <span class="mobile-canvas-upload-icon">+</span>
+        <span class="mobile-canvas-upload-title">図面・写真を読み込んで下さい</span>
+        <span class="mobile-canvas-upload-sub">PDF / PNG / JPG</span>
+      </button>
       <div class="canvas-hint" id="canvasHint">
         📏 縮尺モード：2点をクリック
       </div>
@@ -4220,6 +4418,7 @@ body.stamp-modal-open header{ pointer-events: none; }
         <div class="ctrl-divider"></div>
         <button class="canvas-ctrl-btn" id="globalUndoBtn" title="戻る">↩</button>
         <button class="canvas-ctrl-btn" id="globalRedoBtn" title="やり直し">↪</button>
+        <button class="canvas-ctrl-btn mobile-help-btn" id="mobileHelpBtn" title="使い方" aria-pressed="false">?</button>
       </div>
     </div>
 
@@ -4371,6 +4570,17 @@ body.stamp-modal-open header{ pointer-events: none; }
     <button type="button" data-mobile-mode="stamp"><strong>🏷</strong><span>スタンプ</span></button>
     <button type="button" id="mobileOpenResults"><strong>📊</strong><span>結果</span></button>
   </nav>
+
+  <div class="mobile-help-popover" id="mobileHelpPopover" aria-hidden="true" hidden>
+    <div class="mobile-help-card" role="dialog" aria-modal="true" aria-labelledby="mobileHelpTitle">
+      <div class="mobile-help-head">
+        <div class="mobile-help-title" id="mobileHelpTitle">操作方法</div>
+        <button class="mobile-help-close" id="mobileHelpCloseBtn" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="mobile-help-body" id="mobileHelpBody"></div>
+    </div>
+    <button class="canvas-ctrl-btn mobile-help-popover-btn" id="mobileHelpPopoverBtn" type="button" title="使い方を閉じる" aria-label="使い方を閉じる">?</button>
+  </div>
 
   <!-- ③ Scale Modal -->
   <div class="modal-overlay" id="scaleModal">
@@ -4928,6 +5138,7 @@ function getStampDef(stampOrType) {
     const loadedFileCard = document.getElementById('loadedFileCard');
     const loadedFileName = document.getElementById('loadedFileName');
     const loadedFileDeleteBtn = document.getElementById('loadedFileDeleteBtn');
+    const mobileCanvasUploadBtn = document.getElementById('mobileCanvasUploadBtn');
     const modeButtons = document.querySelectorAll('.mode-selector:not(.sub) .mode-btn');
     const subModeButtons = document.querySelectorAll('.mode-selector.sub .mode-btn');
     const mobilePanelOverlay = document.getElementById('mobilePanelOverlay');
@@ -4936,6 +5147,11 @@ function getStampDef(stampOrType) {
     const mobileModeButtons = document.querySelectorAll('[data-mobile-mode]');
     const mobileSubModeButtons = document.querySelectorAll('[data-mobile-submode]');
     const mobileRouteSubnav = document.getElementById('mobileRouteSubnav');
+    const mobileHelpBtn = document.getElementById('mobileHelpBtn');
+    const mobileHelpPopover = document.getElementById('mobileHelpPopover');
+    const mobileHelpPopoverBtn = document.getElementById('mobileHelpPopoverBtn');
+    const mobileHelpBody = document.getElementById('mobileHelpBody');
+    const mobileHelpCloseBtn = document.getElementById('mobileHelpCloseBtn');
     const scaleWarning = document.getElementById('scaleWarning');
     const snapCheckboxes = [
       document.getElementById('stationSnapCheckbox'),
@@ -5553,6 +5769,7 @@ function openStampModal(){
       if (fileUpload) fileUpload.hidden = hasFloorplan;
       if (loadedFileCard) loadedFileCard.hidden = !hasFloorplan;
       if (loadedFileName) loadedFileName.textContent = hasFloorplan ? (state.imgName || '読み込み済み図面') : '-';
+      if (mobileCanvasUploadBtn) mobileCanvasUploadBtn.hidden = hasFloorplan;
     }
 
     function clearLoadedFloorplan() {
@@ -5836,12 +6053,69 @@ function openStampModal(){
     }
 
     function openMobilePanel(kind) {
+      closeMobileHelpPopup();
       const left = kind === 'left';
       const right = kind === 'right';
       document.body.classList.toggle('mobile-left-open', left);
       document.body.classList.toggle('mobile-right-open', right);
       mobileOpenControlsBtn?.classList.toggle('panel-active', left);
       mobileOpenResultsBtn?.classList.toggle('panel-active', right);
+    }
+
+    function renderMobileHelpPopup() {
+      if (!mobileHelpBody) return;
+      mobileHelpBody.innerHTML = tutorialGuideSteps.map(step => {
+        const note = step.note ? `<div class="mobile-help-note">${escapeHtml(step.note)}</div>` : '';
+        return `
+          <section class="mobile-help-section">
+            <div class="mobile-help-section-title">${escapeHtml(step.title)}</div>
+            <ul class="mobile-help-list">
+              ${step.items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+            </ul>
+            ${note}
+          </section>
+        `;
+      }).join('');
+    }
+
+    function syncMobileHelpPopoverButton() {
+      if (!mobileHelpBtn || !mobileHelpPopoverBtn) return;
+      const rect = mobileHelpBtn.getBoundingClientRect();
+      mobileHelpPopoverBtn.style.left = `${rect.left}px`;
+      mobileHelpPopoverBtn.style.top = `${rect.top}px`;
+      mobileHelpPopoverBtn.style.width = `${rect.width}px`;
+      mobileHelpPopoverBtn.style.height = `${rect.height}px`;
+    }
+
+    function openMobileHelpPopup() {
+      if (!mobileHelpPopover || window.innerWidth > 760) return;
+      closeMobilePanels();
+      renderMobileHelpPopup();
+      syncMobileHelpPopoverButton();
+      document.body.classList.add('mobile-help-open');
+      mobileHelpPopover.hidden = false;
+      mobileHelpPopover.classList.add('active');
+      mobileHelpPopover.setAttribute('aria-hidden', 'false');
+      mobileHelpBtn?.classList.add('active');
+      mobileHelpBtn?.setAttribute('aria-pressed', 'true');
+    }
+
+    function closeMobileHelpPopup() {
+      if (!mobileHelpPopover) return;
+      document.body.classList.remove('mobile-help-open');
+      mobileHelpPopover.classList.remove('active');
+      mobileHelpPopover.hidden = true;
+      mobileHelpPopover.setAttribute('aria-hidden', 'true');
+      mobileHelpBtn?.classList.remove('active');
+      mobileHelpBtn?.setAttribute('aria-pressed', 'false');
+      if (mobileHelpPopoverBtn) {
+        mobileHelpPopoverBtn.removeAttribute('style');
+      }
+    }
+
+    function toggleMobileHelpPopup() {
+      if (mobileHelpPopover?.classList.contains('active')) closeMobileHelpPopup();
+      else openMobileHelpPopup();
     }
 
     function syncMobileModeUI() {
@@ -8531,6 +8805,17 @@ function draw() {
       else openMobilePanel('right');
     });
     mobilePanelOverlay?.addEventListener('click', closeMobilePanels);
+    mobileCanvasUploadBtn?.addEventListener('click', () => {
+      closeMobilePanels();
+      closeMobileHelpPopup();
+      fileInput?.click();
+    });
+    mobileHelpBtn?.addEventListener('click', toggleMobileHelpPopup);
+    mobileHelpPopoverBtn?.addEventListener('click', closeMobileHelpPopup);
+    mobileHelpCloseBtn?.addEventListener('click', closeMobileHelpPopup);
+    mobileHelpPopover?.addEventListener('click', (e) => {
+      if (e.target?.id === 'mobileHelpPopover') closeMobileHelpPopup();
+    });
     mobileModeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = btn.dataset.mobileMode;
@@ -8552,7 +8837,12 @@ function draw() {
       });
     });
     window.addEventListener('resize', () => {
-      if (window.innerWidth > 760) closeMobilePanels();
+      if (window.innerWidth > 760) {
+        closeMobilePanels();
+        closeMobileHelpPopup();
+      } else if (mobileHelpPopover?.classList.contains('active')) {
+        syncMobileHelpPopoverButton();
+      }
       requestAnimationFrame(() => {
         setupCanvas();
         if (state.img) centerCanvas();
@@ -8906,6 +9196,14 @@ function draw() {
         e.preventDefault();
         e.stopPropagation();
         moveTutorialGuide(1);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!mobileHelpPopover?.classList.contains('active')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMobileHelpPopup();
       }
     });
 
