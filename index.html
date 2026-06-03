@@ -2615,6 +2615,42 @@
         color: #b42318;
       }
 
+      .mobile-tool-btn.route-pole-delete {
+        border-color: rgba(220, 53, 69, 0.38);
+        color: #b42318;
+      }
+
+      .mobile-tool-check {
+        min-height: 40px;
+        padding: 8px 10px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #1f2937;
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+        backdrop-filter: blur(10px);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+
+      .mobile-tool-check input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: var(--hakuou-blue);
+      }
+
+      .mobile-tool-check.disabled {
+        opacity: 0.45;
+        filter: grayscale(1);
+        box-shadow: none;
+      }
+
       .mobile-mode-tool-row[data-mobile-tools-mode="station"].active {
         display: grid;
         grid-template-columns: repeat(4, max-content);
@@ -4679,6 +4715,11 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-stop">■ 停止</button>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-save">動画</button>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-pole">反射ポール</button>
+          <button class="mobile-tool-btn route-pole-delete" type="button" data-mobile-tool-action="route-pole-delete" hidden>削除</button>
+          <label class="mobile-tool-check" for="mobileRouteDetectionRangeCheckbox">
+            <input type="checkbox" id="mobileRouteDetectionRangeCheckbox">
+            <span>検出範囲</span>
+          </label>
         </div>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="stamp">
           <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="stamp-picker">種類</button>
@@ -5455,6 +5496,7 @@ function getStampDef(stampOrType) {
     const mobileModeTools = document.getElementById('mobileModeTools');
     const mobileModeToolRows = document.querySelectorAll('[data-mobile-tools-mode]');
     const mobileToolButtons = document.querySelectorAll('[data-mobile-tool-action]');
+    const mobileRouteDetectionRangeCheckbox = document.getElementById('mobileRouteDetectionRangeCheckbox');
     const mobileHelpBtn = document.getElementById('mobileHelpBtn');
     const mobileHelpPopover = document.getElementById('mobileHelpPopover');
     const mobileHelpPopoverBtn = document.getElementById('mobileHelpPopoverBtn');
@@ -6435,6 +6477,12 @@ function openStampModal(){
       if (text) btn.textContent = text;
     }
 
+    function setMobileToolButtonVisibility(action, visible) {
+      const btn = document.querySelector(`[data-mobile-tool-action="${action}"]`);
+      if (!btn) return;
+      btn.hidden = !visible;
+    }
+
     function mirrorMobileToolButton(action, sourceId, fallbackText) {
       const source = document.getElementById(sourceId);
       setMobileToolButtonState(action, !source || !!source.disabled, source?.textContent?.trim() || fallbackText);
@@ -6475,7 +6523,17 @@ function openStampModal(){
       mirrorMobileToolButton('route-play', 'routeDemoToggleBtn', '▶ 再生');
       mirrorMobileToolButton('route-stop', 'routeDemoStopBtn', '■ 停止');
       mirrorMobileToolButton('route-save', 'routeDemoSaveBtn', '動画');
-      mirrorMobileToolButton('route-pole', 'routeDemoReflectivePoleBtn', '反射ポール');
+      const routeDemo = ensureRouteDemoState();
+      const reflectivePoleBtn = document.getElementById('routeDemoReflectivePoleBtn');
+      const selectedReflectivePole = getSelectedReflectivePoleStamp();
+      setMobileToolButtonState(
+        'route-pole',
+        !reflectivePoleBtn || !!reflectivePoleBtn.disabled,
+        state.routeDemoReflectivePolePlacementActive ? '設置中' : '反射ポール'
+      );
+      document.querySelector('[data-mobile-tool-action="route-pole"]')?.classList.toggle('active', state.routeDemoReflectivePolePlacementActive === true);
+      setMobileToolButtonVisibility('route-pole-delete', state.routeDemoReflectivePolePlacementActive === true || !!selectedReflectivePole);
+      setMobileToolButtonState('route-pole-delete', !selectedReflectivePole || routeDemo.recording, '削除');
 
       setMobileToolButtonState('stamp-picker', !hasScale, '種類');
       mirrorMobileToolButton('stamp-delete', 'deleteStampBtn', '削除');
@@ -6526,6 +6584,16 @@ function openStampModal(){
       }
       if (action === 'station-delete') {
         deleteSelectedStation();
+        updateMobileModeTools();
+        return;
+      }
+      if (action === 'route-pole-delete') {
+        if (!getSelectedReflectivePoleStamp()) {
+          showToast('削除する反射ポールを選択してください', 'warning');
+          updateMobileModeTools();
+          return;
+        }
+        deleteSelectedStamp();
         updateMobileModeTools();
         return;
       }
@@ -7236,6 +7304,24 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       if (state.selectedStampId === null || state.selectedStampId === undefined) return null;
       const selectedId = String(state.selectedStampId);
       return (state.stamps || []).find(stamp => String(stamp.id) === selectedId && isReflectivePoleStamp(stamp)) || null;
+    }
+
+    function getReflectivePoleStampById(id) {
+      if (id === null || id === undefined) return null;
+      const selectedId = String(id);
+      return (state.stamps || []).find(stamp => String(stamp.id) === selectedId && isReflectivePoleStamp(stamp)) || null;
+    }
+
+    function selectReflectivePoleById(id, options = {}) {
+      const stamp = getReflectivePoleStampById(id);
+      if (!stamp) return false;
+      state.selectedStampId = stamp.id;
+      updateStampButtons();
+      updateStampEditUI();
+      updateRouteDemoControlUI();
+      requestRedraw();
+      if (options.toast) showToast(`反射ポール R${Number(stamp.reflectivePoleNo) || ''} を選択しました`);
+      return true;
     }
 
     function isReflectivePoleRangeOn(stamp) {
@@ -10533,8 +10619,22 @@ function getWorldPoint(e) {
       return true;
     }
 
+    function handleMobileDirectReflectivePoleTap(wp) {
+      if (state.currentMode !== 'route' || !state.routeDemoReflectivePolePlacementActive || !state.metersPerPixel) return false;
+      const stampIndex = findStampAt(wp);
+      const stamp = state.stamps[stampIndex];
+      if (stampIndex === -1 || !isReflectivePoleStamp(stamp)) return false;
+      selectReflectivePoleById(stamp.id, { toast: true });
+      return true;
+    }
+
     function getMobileHoldTargetFromWorld(wp) {
       if (!wp || !state.metersPerPixel) return null;
+      if (state.currentMode === 'route' && state.routeDemoReflectivePolePlacementActive) {
+        const stampIndex = findStampAt(wp);
+        const stamp = state.stamps[stampIndex];
+        if (stampIndex !== -1 && isReflectivePoleStamp(stamp)) return { type: 'reflectivePole', id: stamp.id };
+      }
       if (state.currentMode === 'home') {
         const homeIndex = findHomeAt(wp);
         if (homeIndex === -1) return null;
@@ -10558,6 +10658,10 @@ function getWorldPoint(e) {
         const station = state.stations[target.index];
         return station ? { x: station.x, y: station.y } : null;
       }
+      if (target.type === 'reflectivePole') {
+        const stamp = getReflectivePoleStampById(target.id);
+        return stamp ? { x: stamp.x, y: stamp.y } : null;
+      }
       return null;
     }
 
@@ -10565,6 +10669,7 @@ function getWorldPoint(e) {
       if (!target) return false;
       if (target.type === 'home') return selectHomeById(target.id, { toast: false });
       if (target.type === 'station') return selectStation(target.index, { toast: false });
+      if (target.type === 'reflectivePole') return selectReflectivePoleById(target.id, { toast: false });
       return false;
     }
 
@@ -10587,6 +10692,13 @@ function getWorldPoint(e) {
         if (!station) return false;
         station.x = point.x;
         station.y = point.y;
+        return true;
+      }
+      if (target.type === 'reflectivePole') {
+        const stamp = getReflectivePoleStampById(target.id);
+        if (!stamp) return false;
+        stamp.x = point.x;
+        stamp.y = point.y;
         return true;
       }
       return false;
@@ -10689,6 +10801,10 @@ function getWorldPoint(e) {
           updateRouteList();
         } else if (drag.target.type === 'station') {
           updateStationList();
+        } else if (drag.target.type === 'reflectivePole') {
+          updateStampButtons();
+          updateStampEditUI();
+          updateRouteDemoControlUI();
         }
       }
       draw();
@@ -10942,6 +11058,7 @@ function getWorldPoint(e) {
           const tapWorld = getWorldPoint(e);
           if (handleMobileDirectHomeTap(tapWorld)) return true;
           if (handleMobileDirectStationTap(tapWorld)) return true;
+          if (handleMobileDirectReflectivePoleTap(tapWorld)) return true;
           ensureMobileCanvasCursor();
           if (mobileCursorWorld) handleCanvasTapAction(mobileCursorWorld);
         }
@@ -15397,21 +15514,31 @@ measureBtn?.addEventListener('click', () => {
 
     function updateRouteDemoDetectionRangeUI() {
       const cb = document.getElementById('routeDemoDetectionRangeCheckbox');
-      if (!cb) return;
-      cb.checked = state.routeDemoDetectionRange === true;
-      cb.disabled = !!ensureRouteDemoState().recording;
+      const disabled = !!ensureRouteDemoState().recording;
+      if (cb) {
+        cb.checked = state.routeDemoDetectionRange === true;
+        cb.disabled = disabled;
+      }
+      if (mobileRouteDetectionRangeCheckbox) {
+        mobileRouteDetectionRangeCheckbox.checked = state.routeDemoDetectionRange === true;
+        mobileRouteDetectionRangeCheckbox.disabled = disabled;
+        mobileRouteDetectionRangeCheckbox.closest('.mobile-tool-check')?.classList.toggle('disabled', disabled);
+      }
     }
 
     function setupRouteDemoDetectionRangeControl() {
-      const cb = document.getElementById('routeDemoDetectionRangeCheckbox');
-      if (!cb || cb.dataset.bound === '1') return;
-      cb.dataset.bound = '1';
-      cb.addEventListener('change', (e) => {
-        state.routeDemoDetectionRange = !!e.target.checked;
-        saveState();
-        updateRouteDemoDetectionRangeUI();
-        draw();
-      });
+      const bindCheckbox = (cb) => {
+        if (!cb || cb.dataset.bound === '1') return;
+        cb.dataset.bound = '1';
+        cb.addEventListener('change', (e) => {
+          state.routeDemoDetectionRange = !!e.target.checked;
+          saveState();
+          updateRouteDemoDetectionRangeUI();
+          draw();
+        });
+      };
+      bindCheckbox(document.getElementById('routeDemoDetectionRangeCheckbox'));
+      bindCheckbox(mobileRouteDetectionRangeCheckbox);
       updateRouteDemoDetectionRangeUI();
     }
 
