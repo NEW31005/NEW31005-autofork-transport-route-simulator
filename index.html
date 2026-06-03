@@ -10206,8 +10206,8 @@ function getWorldPoint(e) {
       const residualY = dy - consumedY;
       if (residualX || residualY) {
         mobileCursorScreenOffset = clampMobileCursorScreenOffset({
-          x: (mobileCursorScreenOffset?.x || 0) + residualX,
-          y: (mobileCursorScreenOffset?.y || 0) + residualY
+          x: (mobileCursorScreenOffset?.x || 0) - residualX,
+          y: (mobileCursorScreenOffset?.y || 0) - residualY
         });
       }
       syncMobileCursorWorldFromScreen();
