@@ -2649,11 +2649,11 @@
       }
 
       .mobile-mode-tools {
-        position: absolute;
+        position: fixed;
         left: 12px;
         right: 74px;
         bottom: calc(92px + env(safe-area-inset-bottom, 0px));
-        z-index: 55;
+        z-index: 1285;
         display: none;
         align-items: flex-end;
         justify-content: flex-start;
@@ -2667,6 +2667,17 @@
 
       .mobile-mode-tools.route-active {
         bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+      }
+
+      body.mobile-route-demo-running .mobile-route-subnav {
+        display: none !important;
+      }
+
+      body.mobile-route-demo-running .mobile-mode-tools.route-active {
+        left: 10px;
+        right: 10px;
+        bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+        z-index: 1295;
       }
 
       body.mobile-left-open .mobile-mode-tools,
@@ -2686,6 +2697,22 @@
       .mobile-mode-tool-row.active {
         display: flex;
       }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"].active {
+        flex-wrap: nowrap;
+        max-width: 100%;
+        overflow-x: auto;
+        padding: 2px 2px 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-play"] { order: 1; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-stop"] { order: 2; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] .mobile-tool-select { order: 3; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-add"] { order: 4; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-save"] { order: 5; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-pole"] { order: 6; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-pole-delete"] { order: 7; }
 
       .mobile-tool-btn {
         min-height: 40px;
@@ -4978,7 +5005,12 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-save">動画</button>
           <label class="mobile-tool-select" for="mobileRouteDemoSpeedSelect">
             <span>速度</span>
-            <select id="mobileRouteDemoSpeedSelect" aria-label="走行デモ速度"></select>
+            <select id="mobileRouteDemoSpeedSelect" aria-label="走行デモ速度">
+              <option value="1.00">等速</option>
+              <option value="2.00">2倍</option>
+              <option value="4.00">4倍</option>
+              <option value="5.00">5倍</option>
+            </select>
           </label>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-pole">反射ポール</button>
           <button class="mobile-tool-btn route-pole-delete" type="button" data-mobile-tool-action="route-pole-delete" hidden>削除</button>
@@ -6709,6 +6741,14 @@ function openStampModal(){
       document.body.classList.toggle('mobile-modal-open', isMobileModalActive());
     }
 
+    function syncMobileRouteDemoState() {
+      const demo = ensureRouteDemoState();
+      document.body.classList.toggle(
+        'mobile-route-demo-running',
+        isMobileLayout() && !!demo.running && !demo.recording
+      );
+    }
+
     function openMobilePanel(kind) {
       closeMobileHelpPopup();
       const left = kind === 'left';
@@ -6802,6 +6842,7 @@ function openStampModal(){
       const toolModes = ['home', 'station', 'route'];
       const mode = state.currentMode;
       syncMobileModalState();
+      syncMobileRouteDemoState();
       const modalOpen = isMobileModalActive();
       const show = isMobileLayout() && !modalOpen && toolModes.includes(mode) && canUseMode(mode);
       mobileModeTools.hidden = !show;
@@ -6831,11 +6872,17 @@ function openStampModal(){
       mirrorMobileToolButton('station-down', 'stationMoveDownBtn', '↓');
       mirrorMobileToolButton('station-right', 'stationMoveRightBtn', '→');
 
-      mirrorMobileToolButton('route-add', 'addRouteBtn', '+ ルート');
-      mirrorMobileToolButton('route-play', 'routeDemoToggleBtn', '▶ 再生');
-      mirrorMobileToolButton('route-stop', 'routeDemoStopBtn', '■ 停止');
-      mirrorMobileToolButton('route-save', 'routeDemoSaveBtn', '動画');
       const routeDemo = ensureRouteDemoState();
+      const activeRoute = state.routes?.[state.activeRouteIndex];
+      const hasPlayableRoute = Array.isArray(activeRoute?.points) && activeRoute.points.length >= 2;
+      const routeReady = canUseMode('route');
+      const routePlayText = routeDemo.running && !routeDemo.paused
+        ? '一時停止'
+        : (routeDemo.running && routeDemo.paused ? '再開' : '再生');
+      mirrorMobileToolButton('route-add', 'addRouteBtn', '+ ルート');
+      setMobileToolButtonState('route-play', (!routeDemo.running && (!hasPlayableRoute || !routeReady)) || routeDemo.recording, routePlayText);
+      setMobileToolButtonState('route-stop', !routeDemo.running || routeDemo.recording, '停止');
+      setMobileToolButtonState('route-save', routeDemo.running || !hasPlayableRoute || !routeReady || routeDemo.recording, routeDemo.recording ? '保存中' : '動画');
       const reflectivePoleBtn = document.getElementById('routeDemoReflectivePoleBtn');
       const selectedReflectivePole = getSelectedReflectivePoleStamp();
       setMobileToolButtonState(
@@ -9397,7 +9444,10 @@ function draw() {
       };
 
       mobileRouteListOverlay.innerHTML = state.routes.map((route, index) => {
-        const visibilityMode = getRouteVisibilityMode(index);
+        const solo = getSoloRouteIndex();
+        const visibilityMode = solo !== null && solo !== index
+          ? 'hidden'
+          : getRouteVisibilityMode(index);
         const visibilityIcon = getRouteVisibilityIcon(visibilityMode);
         const visibilityTitle = visibilityMode === 'hidden'
           ? '非表示中。タップでこのルートのみ表示'
@@ -9454,6 +9504,18 @@ function draw() {
         btn.addEventListener('click', (e) => {
           const index = Number.parseInt(e.currentTarget.dataset.mobileRouteVisibility, 10);
           if (!state.routes[index]) return;
+          const solo = getSoloRouteIndex();
+          if (solo !== null && solo !== index) {
+            state.activeRouteIndex = index;
+            state.soloRouteIndex = index;
+            showRoute(index);
+            state.segmentSelectStart = null;
+            saveState();
+            updateRouteList();
+            updateLayerToggleUI();
+            requestRedraw();
+            return;
+          }
           cycleRouteVisibility(index);
         });
       });
@@ -9882,7 +9944,16 @@ function draw() {
       if (e.target?.id === 'mobileHelpPopover') closeMobileHelpPopup();
     });
     mobileToolButtons.forEach(btn => {
-      btn.addEventListener('click', () => handleMobileToolAction(btn.dataset.mobileToolAction));
+      const stopMobileToolPropagation = (e) => {
+        e.stopPropagation();
+      };
+      btn.addEventListener('pointerdown', stopMobileToolPropagation);
+      btn.addEventListener('touchstart', stopMobileToolPropagation, { passive: true });
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleMobileToolAction(btn.dataset.mobileToolAction);
+      });
     });
     mobileModeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -12973,8 +13044,8 @@ measureBtn?.addEventListener('click', () => {
       const defaultHomeId = state.homePositions[0].id;
       state.routes.push({ name: `ルート${num}`, points: [], loadedSegments: [], recognizePaths: [], turn180Points: [], homeId: defaultHomeId });
       state.activeRouteIndex = state.routes.length - 1;
-      state.soloRouteIndex = null;
       state.hiddenRouteIndexes = [];
+      state.soloRouteIndex = isMobileLayout() ? state.activeRouteIndex : null;
       state.segmentSelectStart = null;
       state.recognizeDrawing = [];
       saveState();
@@ -16108,6 +16179,7 @@ measureBtn?.addEventListener('click', () => {
           e.stopPropagation();
           setRouteDemoSpeed(e.currentTarget.value);
           updateMobileModeTools();
+          if (state.routeDemo && state.routeDemo.running) draw();
         };
         mobileRouteDemoSpeedSelect.addEventListener('pointerdown', keepMobileSpeedSelectOnTop);
         mobileRouteDemoSpeedSelect.addEventListener('touchstart', keepMobileSpeedSelectOnTop, { passive: true });
