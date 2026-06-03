@@ -4614,7 +4614,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       </div>
       <div class="mobile-canvas-cursor" id="mobileCanvasCursor" aria-hidden="true" hidden>
         <span class="mobile-canvas-cursor-dot"></span>
-        <span class="mobile-canvas-cursor-label">タップで確定</span>
+        <span class="mobile-canvas-cursor-label">タップで入力</span>
       </div>
       <div class="mobile-mode-tools" id="mobileModeTools" aria-label="モバイルモード別操作" hidden>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="home">
@@ -10057,9 +10057,8 @@ function getWorldPoint(e) {
     let cropDrag = null;
     const mobileTouchPointers = new Map();
     let mobilePinchGesture = null;
-    let mobileCanvasTap = null;
+    let mobileCursorGesture = null;
     let mobileCursorWorld = null;
-    let mobileLastCursorTap = null;
     let mobileGestureCooldownUntil = 0;
 
     function isRouteDemoRecording() {
@@ -10081,14 +10080,34 @@ function getWorldPoint(e) {
 
     function hideMobileCanvasCursor() {
       mobileCursorWorld = null;
-      mobileLastCursorTap = null;
       if (!mobileCanvasCursor) return;
       mobileCanvasCursor.hidden = true;
       mobileCanvasCursor.classList.remove('active');
     }
 
+    function getMobileVisibleCenterWorld() {
+      if (!isMobileLayout() || !state.img || !scrollContainer) return null;
+      const offset = getImageOffset();
+      const z = state.zoom || 1;
+      const visibleCenterX = scrollContainer.scrollLeft + Math.max(80, (scrollContainer.clientWidth - 78) / 2);
+      const visibleCenterY = scrollContainer.scrollTop + Math.max(80, (scrollContainer.clientHeight - 28) / 2);
+      return clampWorldPointToImage({
+        x: (visibleCenterX - offset.x) / z,
+        y: (visibleCenterY - offset.y) / z
+      });
+    }
+
+    function ensureMobileCanvasCursor() {
+      if (!isMobileLayout() || !state.img || mobileCursorWorld) return;
+      mobileCursorWorld = getMobileVisibleCenterWorld() || clampWorldPointToImage({
+        x: (state.imgWidth || 0) / 2,
+        y: (state.imgHeight || 0) / 2
+      });
+    }
+
     function updateMobileCanvasCursor() {
       if (!mobileCanvasCursor) return;
+      ensureMobileCanvasCursor();
       if (!isMobileLayout() || !state.img || !mobileCursorWorld) {
         mobileCanvasCursor.hidden = true;
         mobileCanvasCursor.classList.remove('active');
@@ -10108,33 +10127,7 @@ function getWorldPoint(e) {
 
     function setMobileCanvasCursor(wp) {
       if (!wp || !state.img) return;
-      mobileCursorWorld = { x: wp.x, y: wp.y };
-      updateMobileCanvasCursor();
-    }
-
-    function isMobileCursorConfirmTap(wp) {
-      if (!mobileCursorWorld || !wp) return false;
-      const z = state.zoom || 1;
-      const dx = (wp.x - mobileCursorWorld.x) * z;
-      const dy = (wp.y - mobileCursorWorld.y) * z;
-      return Math.hypot(dx, dy) <= 28;
-    }
-
-    function isMobileDoubleTapZoom(wp, now) {
-      if (!mobileLastCursorTap || !wp) return false;
-      if (now - mobileLastCursorTap.time > 340) return false;
-      const z = state.zoom || 1;
-      const dx = (wp.x - mobileLastCursorTap.x) * z;
-      const dy = (wp.y - mobileLastCursorTap.y) * z;
-      return Math.hypot(dx, dy) <= 42;
-    }
-
-    function zoomMobileAtTap(clientX, clientY) {
-      if (!isMobileLayout() || !state.img) return;
-      const base = getMobileZoomBase();
-      const current = state.zoom || base;
-      const nextZoom = current > base * 1.35 ? base : base * 2;
-      setZoomAtClientPoint(nextZoom, clientX, clientY);
+      mobileCursorWorld = clampWorldPointToImage(wp);
       updateMobileCanvasCursor();
     }
 
@@ -10155,8 +10148,7 @@ function getWorldPoint(e) {
       const [a, b] = getMobilePointerPair();
       if (!a || !b) return;
       cancelCanvasInteractionState();
-      mobileCanvasTap = null;
-      mobileLastCursorTap = null;
+      mobileCursorGesture = null;
       const center = getPointerCenter(a, b);
       const rect = canvas.getBoundingClientRect();
       const offset = getImageOffset();
@@ -10357,10 +10349,13 @@ function getWorldPoint(e) {
       }
 
       if (shouldDeferMobileCanvasTap(e)) {
-        mobileCanvasTap = {
+        ensureMobileCanvasCursor();
+        mobileCursorGesture = {
           pointerId: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
+          lastX: e.clientX,
+          lastY: e.clientY,
           moved: false
         };
         e.preventDefault();
@@ -10382,10 +10377,21 @@ function getWorldPoint(e) {
         updateMobilePinchGesture();
         return true;
       }
-      if (mobileCanvasTap && mobileCanvasTap.pointerId === e.pointerId) {
-        if (Math.hypot(e.clientX - mobileCanvasTap.startX, e.clientY - mobileCanvasTap.startY) > 8) {
-          mobileCanvasTap.moved = true;
+      if (mobileCursorGesture && mobileCursorGesture.pointerId === e.pointerId) {
+        const dx = e.clientX - mobileCursorGesture.lastX;
+        const dy = e.clientY - mobileCursorGesture.lastY;
+        if (Math.hypot(e.clientX - mobileCursorGesture.startX, e.clientY - mobileCursorGesture.startY) > 6) {
+          mobileCursorGesture.moved = true;
         }
+        if (mobileCursorWorld && (dx || dy)) {
+          const z = state.zoom || 1;
+          setMobileCanvasCursor({
+            x: mobileCursorWorld.x + dx / z,
+            y: mobileCursorWorld.y + dy / z
+          });
+        }
+        mobileCursorGesture.lastX = e.clientX;
+        mobileCursorGesture.lastY = e.clientY;
         e.preventDefault();
         e.stopPropagation();
         return true;
@@ -10396,7 +10402,7 @@ function getWorldPoint(e) {
     function handleMobilePointerUp(e) {
       if (!isMobileTouchPointer(e)) return false;
       const wasPinching = !!mobilePinchGesture;
-      const canvasTap = mobileCanvasTap && mobileCanvasTap.pointerId === e.pointerId ? mobileCanvasTap : null;
+      const cursorGesture = mobileCursorGesture && mobileCursorGesture.pointerId === e.pointerId ? mobileCursorGesture : null;
       mobileTouchPointers.delete(e.pointerId);
 
       if (wasPinching) {
@@ -10411,24 +10417,13 @@ function getWorldPoint(e) {
         return true;
       }
 
-      if (canvasTap) {
+      if (cursorGesture) {
         e.preventDefault();
         e.stopPropagation();
-        mobileCanvasTap = null;
-        if (!canvasTap.moved && Date.now() >= mobileGestureCooldownUntil) {
-          const now = Date.now();
-          const wp = getWorldPoint(e);
-          if (isMobileDoubleTapZoom(wp, now)) {
-            setMobileCanvasCursor(wp);
-            mobileLastCursorTap = null;
-            zoomMobileAtTap(e.clientX, e.clientY);
-          } else if (isMobileCursorConfirmTap(wp)) {
-            mobileLastCursorTap = null;
-            handleCanvasTapAction(mobileCursorWorld || wp);
-          } else {
-            setMobileCanvasCursor(wp);
-            mobileLastCursorTap = { x: wp.x, y: wp.y, time: now };
-          }
+        mobileCursorGesture = null;
+        if (!cursorGesture.moved && Date.now() >= mobileGestureCooldownUntil) {
+          ensureMobileCanvasCursor();
+          if (mobileCursorWorld) handleCanvasTapAction(mobileCursorWorld);
         }
         return true;
       }
@@ -10439,7 +10434,7 @@ function getWorldPoint(e) {
     function handleMobilePointerCancel(e) {
       if (!isMobileTouchPointer(e)) return false;
       mobileTouchPointers.delete(e.pointerId);
-      mobileCanvasTap = null;
+      mobileCursorGesture = null;
       if (mobilePinchGesture && mobileTouchPointers.size < 2) {
         mobilePinchGesture = null;
         mobileGestureCooldownUntil = Date.now() + 260;
