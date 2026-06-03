@@ -2089,6 +2089,7 @@
     .mobile-bottom-nav,
     .mobile-route-subnav,
     .mobile-canvas-upload,
+    .mobile-route-list-overlay,
     .mobile-results-actions,
     .mobile-help-btn,
     .mobile-help-popover {
@@ -2542,6 +2543,109 @@
         display: none !important;
       }
 
+      .mobile-route-list-overlay {
+        position: absolute;
+        top: 52px;
+        left: 10px;
+        width: min(310px, calc(100% - 86px));
+        max-height: calc(100% - 250px);
+        z-index: 53;
+        display: none;
+        flex-direction: column;
+        gap: 7px;
+        overflow-y: auto;
+        padding: 0 2px 2px 0;
+        pointer-events: none;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .mobile-route-list-overlay.active {
+        display: flex;
+      }
+
+      .mobile-route-list-overlay[hidden],
+      body.mobile-left-open .mobile-route-list-overlay,
+      body.mobile-right-open .mobile-route-list-overlay {
+        display: none !important;
+      }
+
+      .mobile-route-list-item {
+        display: grid;
+        grid-template-columns: minmax(78px, 1fr) minmax(76px, 96px) 44px;
+        align-items: center;
+        gap: 5px;
+        pointer-events: auto;
+      }
+
+      .mobile-route-main-btn,
+      .mobile-route-home-select,
+      .mobile-route-visibility-btn {
+        min-height: 34px;
+        border: 1px solid rgba(148, 163, 184, 0.56);
+        background: rgba(255, 255, 255, 0.9);
+        color: #0f172a;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+        backdrop-filter: blur(8px);
+      }
+
+      .mobile-route-main-btn {
+        min-width: 0;
+        border-radius: 12px;
+        padding: 6px 9px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 900;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .mobile-route-list-item.active .mobile-route-main-btn {
+        border-color: rgba(0, 82, 154, 0.58);
+        color: var(--hakuou-blue);
+        background: rgba(232, 244, 253, 0.94);
+      }
+
+      .mobile-route-home-select {
+        width: 100%;
+        min-width: 0;
+        border-radius: 11px;
+        padding: 5px 22px 5px 7px;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .mobile-route-home-select:disabled {
+        opacity: 0.72;
+      }
+
+      .mobile-route-visibility-btn {
+        width: 44px;
+        border-radius: 12px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #334155;
+      }
+
+      .mobile-route-visibility-btn.solo {
+        border-color: rgba(0, 82, 154, 0.55);
+        color: var(--hakuou-blue);
+        background: rgba(232, 244, 253, 0.96);
+      }
+
+      .mobile-route-visibility-btn.hidden-route {
+        border-color: rgba(220, 53, 69, 0.34);
+        color: #b42318;
+        background: rgba(255, 241, 242, 0.95);
+      }
+
+      .mobile-route-visibility-btn .route-visibility-icon {
+        width: 21px;
+        height: 21px;
+      }
+
       .mobile-mode-tools {
         position: absolute;
         left: 12px;
@@ -2922,6 +3026,24 @@
         font-size: 12px;
         line-height: 1.6;
         font-weight: 800;
+      }
+
+      #reportModal .modal-footer.report-footer-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 10px;
+      }
+
+      #reportModal .report-footer-actions .pdf-orientation-select {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 44px;
+      }
+
+      #reportModal .report-footer-actions .btn {
+        width: 100%;
+        min-width: 0;
       }
 
       .modal-overlay {
@@ -4745,6 +4867,7 @@ body.stamp-modal-open header{ pointer-events: none; }
         <span class="mobile-canvas-cursor-dot"></span>
         <span class="mobile-canvas-cursor-label">タップで入力</span>
       </div>
+      <div class="mobile-route-list-overlay" id="mobileRouteListOverlay" aria-label="モバイルルート一覧" hidden></div>
       <div class="mobile-mode-tools" id="mobileModeTools" aria-label="モバイルモード別操作" hidden>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="home">
           <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="home-add">+ 初期位置</button>
@@ -5553,6 +5676,7 @@ function getStampDef(stampOrType) {
     const mobileModeButtons = document.querySelectorAll('[data-mobile-mode]');
     const mobileSubModeButtons = document.querySelectorAll('[data-mobile-submode]');
     const mobileRouteSubnav = document.getElementById('mobileRouteSubnav');
+    const mobileRouteListOverlay = document.getElementById('mobileRouteListOverlay');
     const mobileModeTools = document.getElementById('mobileModeTools');
     const mobileModeToolRows = document.querySelectorAll('[data-mobile-tools-mode]');
     const mobileToolButtons = document.querySelectorAll('[data-mobile-tool-action]');
@@ -6550,7 +6674,10 @@ function openStampModal(){
     }
 
     function updateMobileModeTools() {
-      if (!mobileModeTools) return;
+      if (!mobileModeTools) {
+        updateMobileRouteListOverlay();
+        return;
+      }
       const toolModes = ['home', 'station', 'route'];
       const mode = state.currentMode;
       const show = isMobileLayout() && toolModes.includes(mode) && canUseMode(mode);
@@ -6562,6 +6689,7 @@ function openStampModal(){
         row.classList.toggle('active', show && row.dataset.mobileToolsMode === mode);
       });
 
+      updateMobileRouteListOverlay();
       if (!show) return;
 
       const hasScale = !!state.metersPerPixel;
@@ -9098,6 +9226,99 @@ function draw() {
       updateMobileModeTools();
     }
 
+    function updateMobileRouteListOverlay() {
+      if (!mobileRouteListOverlay) return;
+      const show = isMobileLayout()
+        && state.currentMode === 'route'
+        && state.routes.length > 0
+        && !document.body.classList.contains('mobile-left-open')
+        && !document.body.classList.contains('mobile-right-open');
+
+      mobileRouteListOverlay.hidden = !show;
+      mobileRouteListOverlay.classList.toggle('active', show);
+      if (!show) {
+        mobileRouteListOverlay.innerHTML = '';
+        return;
+      }
+
+      const homeOptions = (route) => {
+        if (!state.homePositions.length) {
+          return '<option value="">初期位置なし</option>';
+        }
+        const currentHomeId = route.homeId || state.homePositions[0]?.id || '';
+        const options = state.homePositions.map(home => {
+          const selected = currentHomeId === home.id ? 'selected' : '';
+          return `<option value="${escapeHtml(home.id)}" ${selected}>${escapeHtml(formatHomeIdLabel(home.id))}</option>`;
+        });
+        if (currentHomeId && !state.homePositions.some(home => home.id === currentHomeId)) {
+          options.unshift(`<option value="${escapeHtml(currentHomeId)}" selected>${escapeHtml(formatHomeIdLabel(currentHomeId))}</option>`);
+        }
+        return options.join('');
+      };
+
+      mobileRouteListOverlay.innerHTML = state.routes.map((route, index) => {
+        const visibilityMode = getRouteVisibilityMode(index);
+        const visibilityIcon = getRouteVisibilityIcon(visibilityMode);
+        const visibilityTitle = visibilityMode === 'hidden'
+          ? '非表示中。タップでこのルートのみ表示'
+          : visibilityMode === 'solo'
+            ? 'このルートのみ表示中。タップで表示に戻す'
+            : '表示中。タップでこのルートを非表示';
+        const visibilityClass = visibilityMode === 'hidden'
+          ? 'hidden-route'
+          : visibilityMode === 'solo'
+            ? 'solo'
+            : 'visible-route';
+        const routeName = route.name || `ルート${index + 1}`;
+        return `
+          <div class="mobile-route-list-item ${index === state.activeRouteIndex ? 'active' : ''}" data-mobile-route-item="${index}">
+            <button class="mobile-route-main-btn" type="button" data-mobile-route-select="${index}" title="${escapeHtml(routeName)}">${escapeHtml(routeName)}</button>
+            <select class="mobile-route-home-select" data-mobile-route-home="${index}" title="接続初期位置" ${state.homePositions.length <= 1 ? 'disabled' : ''}>${homeOptions(route)}</select>
+            <button class="mobile-route-visibility-btn ${visibilityClass}" type="button" data-mobile-route-visibility="${index}" title="${visibilityTitle}" aria-label="${visibilityTitle}">${visibilityIcon}</button>
+          </div>
+        `;
+      }).join('');
+
+      mobileRouteListOverlay.querySelectorAll('[data-mobile-route-select]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = Number.parseInt(e.currentTarget.dataset.mobileRouteSelect, 10);
+          if (!state.routes[index]) return;
+          state.activeRouteIndex = index;
+          if (getSoloRouteIndex() !== null) {
+            state.soloRouteIndex = index;
+            showRoute(index);
+          }
+          state.segmentSelectStart = null;
+          saveState();
+          updateRouteList();
+          updateLayerToggleUI();
+          requestRedraw();
+        });
+      });
+
+      mobileRouteListOverlay.querySelectorAll('[data-mobile-route-home]').forEach(select => {
+        select.addEventListener('change', (e) => {
+          const index = Number.parseInt(e.currentTarget.dataset.mobileRouteHome, 10);
+          const route = state.routes[index];
+          if (!route) return;
+          route.homeId = e.currentTarget.value;
+          state.activeRouteIndex = index;
+          syncRouteStartPointToHome(route);
+          saveState();
+          updateRouteList();
+          requestRedraw();
+        });
+      });
+
+      mobileRouteListOverlay.querySelectorAll('[data-mobile-route-visibility]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = Number.parseInt(e.currentTarget.dataset.mobileRouteVisibility, 10);
+          if (!state.routes[index]) return;
+          cycleRouteVisibility(index);
+        });
+      });
+    }
+
     function selectStation(index, options = {}) {
       if (!state.stations[index]) return false;
       state.selectedStationIndex = index;
@@ -9182,12 +9403,16 @@ function draw() {
 
     function updateRouteList() {
       const list = document.getElementById('routeList');
-      if (!list) return;
+      if (!list) {
+        updateMobileRouteListOverlay();
+        return;
+      }
 
       if (!state.routes.length) {
         clearRouteVisibilityFilter();
         list.innerHTML = '<div class="muted">ルートがありません</div>';
         updateRouteDemoControlUI();
+        updateMobileRouteListOverlay();
         return;
       }
 
@@ -9218,6 +9443,7 @@ function draw() {
       }).join('');
       updateRouteDemoSpeedUI();
       updateRouteDemoControlUI();
+      updateMobileRouteListOverlay();
 
       // Click handlers (attach per item, prevents accidental bubbling)
       list.querySelectorAll('.list-item').forEach(item => {
@@ -11610,6 +11836,7 @@ function getWorldPoint(e) {
         saveState();
         showToast('180°旋回を追加しました');
       }
+      updateMobileRouteListOverlay();
     }
 
     canvas.addEventListener('dblclick', (e) => {
@@ -12612,6 +12839,7 @@ measureBtn?.addEventListener('click', () => {
       state.recognizeDrawing = [];
       saveState();
       draw();
+      updateMobileRouteListOverlay();
       showToast(`ルート${num}を追加`);
     });
 
