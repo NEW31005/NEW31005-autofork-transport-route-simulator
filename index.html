@@ -10059,6 +10059,7 @@ function getWorldPoint(e) {
     let mobilePinchGesture = null;
     let mobileCanvasTap = null;
     let mobileCursorWorld = null;
+    let mobileLastCursorTap = null;
     let mobileGestureCooldownUntil = 0;
 
     function isRouteDemoRecording() {
@@ -10080,6 +10081,7 @@ function getWorldPoint(e) {
 
     function hideMobileCanvasCursor() {
       mobileCursorWorld = null;
+      mobileLastCursorTap = null;
       if (!mobileCanvasCursor) return;
       mobileCanvasCursor.hidden = true;
       mobileCanvasCursor.classList.remove('active');
@@ -10118,6 +10120,24 @@ function getWorldPoint(e) {
       return Math.hypot(dx, dy) <= 28;
     }
 
+    function isMobileDoubleTapZoom(wp, now) {
+      if (!mobileLastCursorTap || !wp) return false;
+      if (now - mobileLastCursorTap.time > 340) return false;
+      const z = state.zoom || 1;
+      const dx = (wp.x - mobileLastCursorTap.x) * z;
+      const dy = (wp.y - mobileLastCursorTap.y) * z;
+      return Math.hypot(dx, dy) <= 42;
+    }
+
+    function zoomMobileAtTap(clientX, clientY) {
+      if (!isMobileLayout() || !state.img) return;
+      const base = getMobileZoomBase();
+      const current = state.zoom || base;
+      const nextZoom = current > base * 1.35 ? base : base * 2;
+      setZoomAtClientPoint(nextZoom, clientX, clientY);
+      updateMobileCanvasCursor();
+    }
+
     function getMobilePointerPair() {
       return Array.from(mobileTouchPointers.values()).slice(0, 2);
     }
@@ -10136,6 +10156,7 @@ function getWorldPoint(e) {
       if (!a || !b) return;
       cancelCanvasInteractionState();
       mobileCanvasTap = null;
+      mobileLastCursorTap = null;
       const center = getPointerCenter(a, b);
       const rect = canvas.getBoundingClientRect();
       const offset = getImageOffset();
@@ -10395,11 +10416,18 @@ function getWorldPoint(e) {
         e.stopPropagation();
         mobileCanvasTap = null;
         if (!canvasTap.moved && Date.now() >= mobileGestureCooldownUntil) {
+          const now = Date.now();
           const wp = getWorldPoint(e);
-          if (isMobileCursorConfirmTap(wp)) {
+          if (isMobileDoubleTapZoom(wp, now)) {
+            setMobileCanvasCursor(wp);
+            mobileLastCursorTap = null;
+            zoomMobileAtTap(e.clientX, e.clientY);
+          } else if (isMobileCursorConfirmTap(wp)) {
+            mobileLastCursorTap = null;
             handleCanvasTapAction(mobileCursorWorld || wp);
           } else {
             setMobileCanvasCursor(wp);
+            mobileLastCursorTap = { x: wp.x, y: wp.y, time: now };
           }
         }
         return true;
