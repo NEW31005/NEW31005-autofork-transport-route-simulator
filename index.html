@@ -2468,7 +2468,7 @@
         bottom: calc(8px + env(safe-area-inset-bottom, 0px));
         z-index: 1225;
         display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
+        grid-template-columns: repeat(7, minmax(0, 1fr));
         gap: 5px;
         overflow: hidden;
         padding: 8px;
@@ -3028,22 +3028,29 @@
         font-weight: 800;
       }
 
+      .toast-container {
+        display: none !important;
+      }
+
       #reportModal .modal-footer.report-footer-actions {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
         gap: 8px;
         padding: 10px;
       }
 
       #reportModal .report-footer-actions .pdf-orientation-select {
-        grid-column: 1 / -1;
-        width: 100%;
+        width: auto;
+        min-width: 92px;
         min-height: 44px;
+        flex: 0 0 auto;
       }
 
       #reportModal .report-footer-actions .btn {
-        width: 100%;
+        width: auto;
         min-width: 0;
+        flex: 1 1 112px;
       }
 
       .modal-overlay {
@@ -5047,7 +5054,6 @@ body.stamp-modal-open header{ pointer-events: none; }
     <button type="button" data-mobile-submode="turn180"><strong>↻</strong><span>180°</span></button>
   </nav>
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="モバイル操作">
-    <button type="button" id="mobileOpenControls"><strong>☰</strong><span>操作</span></button>
     <button type="button" data-mobile-mode="scale"><strong>📏</strong><span>縮尺</span></button>
     <button type="button" data-mobile-mode="home"><strong>🏠</strong><span>初期</span></button>
     <button type="button" data-mobile-mode="station"><strong>📍</strong><span>ST</span></button>
@@ -5539,19 +5545,49 @@ body.stamp-modal-open header{ pointer-events: none; }
       if (window.location.protocol !== 'file:') {
         img.crossOrigin = 'anonymous';
       }
+      img.decoding = 'async';
+      img.loading = 'eager';
+      return img;
+    }
+
+    function isCanvasImageReady(img) {
+      return !!(img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+    }
+
+    function getRetryAssetSrc(file, retryCount) {
+      if (window.location.protocol === 'file:') return file;
+      const separator = file.includes('?') ? '&' : '?';
+      return `${file}${separator}retry=${retryCount}&t=${Date.now()}`;
+    }
+
+    function loadCanvasAssetImage(img, file, label) {
+      let retryCount = 0;
+      const maxRetries = 2;
+      img.onload = () => {
+        retryCount = 0;
+        requestRedraw();
+      };
+      img.onerror = () => {
+        if (retryCount < maxRetries) {
+          retryCount += 1;
+          setTimeout(() => {
+            img.src = getRetryAssetSrc(file, retryCount);
+          }, 220 * retryCount);
+        } else {
+          console.warn(`${label} image failed to load:`, file);
+          requestRedraw();
+        }
+      };
+      img.src = file;
       return img;
     }
 
     const homeMarkerImage = createCanvasSafeImage();
-    homeMarkerImage.onload = () => { requestRedraw(); };
-    homeMarkerImage.onerror = () => { console.warn('Initial position image failed to load:', HOME_MARKER_DEF.file); };
-    homeMarkerImage.src = HOME_MARKER_DEF.file;
+    loadCanvasAssetImage(homeMarkerImage, HOME_MARKER_DEF.file, 'Initial position');
     const stationMarkerImages = {};
     Object.entries(STATION_MARKER_DEFS).forEach(([key, def]) => {
       const img = createCanvasSafeImage();
-      img.onload = () => { requestRedraw(); };
-      img.onerror = () => { console.warn('Station image failed to load:', def.file); };
-      img.src = def.file;
+      loadCanvasAssetImage(img, def.file, 'Station');
       stationMarkerImages[key] = img;
     });
 
@@ -5642,9 +5678,7 @@ function getStampDef(stampOrType) {
         [def.file, def.detectedFile].filter(Boolean).forEach(file => {
           if (stampImages[file]) return;
           const img = createCanvasSafeImage();
-          img.onload = () => { requestRedraw(); };
-          img.onerror = () => { /* ignore */ };
-          img.src = file;
+          loadCanvasAssetImage(img, file, 'Stamp');
           stampImages[file] = img;
         });
       });
@@ -7241,7 +7275,7 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       const hx = home.x * z + offset.x;
       const hy = home.y * z + offset.y;
       const isActive = options.isActive !== undefined ? options.isActive : home.id === state.activeHomeId;
-      const imageReady = homeMarkerImage.complete && (homeMarkerImage.naturalWidth || homeMarkerImage.width);
+      const imageReady = isCanvasImageReady(homeMarkerImage);
       const useSimple = state.homeSimpleMode || !state.metersPerPixel || !imageReady;
 
       if (useSimple) {
@@ -7356,7 +7390,7 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
         const key = getStationMarkerKey(station);
         const def = STATION_MARKER_DEFS[key];
         const img = stationMarkerImages[key];
-        const imageReady = img && img.complete && (img.naturalWidth || img.width);
+        const imageReady = isCanvasImageReady(img);
         if (imageReady) {
           const w = (def.wM / state.metersPerPixel) * z;
           const h = (def.hM / state.metersPerPixel) * z;
@@ -7680,6 +7714,7 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
     function drawStampsLayer(ctx, offset, z, forReport = false, options = {}) {
       if (!state.metersPerPixel) return;
       if (!state.stamps || state.stamps.length === 0) return;
+      preloadStampImages();
       normalizeReflectivePoleNumbers();
       const detectedReflectivePoles = buildDetectedReflectivePoleSet({ includeRouteDemo: !forReport });
       const hideLabels = !!(options.hideLabels || options.hideTags);
@@ -7689,10 +7724,10 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
         if (!def) continue;
         const imageFile = (isReflectivePoleStamp(s) && detectedReflectivePoles.has(s) && def.detectedFile) ? def.detectedFile : def.file;
         let img = stampImages[imageFile];
-        if ((!img || !img.complete || !(img.naturalWidth || img.width)) && imageFile !== def.file) {
+        if (!isCanvasImageReady(img) && imageFile !== def.file) {
           img = stampImages[def.file];
         }
-        if (!img || !img.complete) continue;
+        if (!isCanvasImageReady(img)) continue;
 
         const baseSize = getStampBaseSizeWorld(s);
         if (!baseSize) continue;
