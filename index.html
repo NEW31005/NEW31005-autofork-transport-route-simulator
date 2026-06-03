@@ -2254,6 +2254,13 @@
         touch-action: none;
       }
 
+      .canvas-area,
+      .canvas-scroll-container,
+      .canvas-wrapper {
+        touch-action: none;
+        overscroll-behavior: none;
+      }
+
       .canvas-hint {
         top: 8px;
         left: 8px;
@@ -6591,6 +6598,7 @@ function openStampModal(){
       const newOffset = getImageOffset();
       scrollContainer.scrollLeft = worldX * state.zoom + newOffset.x - (clientX - containerRect.left);
       scrollContainer.scrollTop = worldY * state.zoom + newOffset.y - (clientY - containerRect.top);
+      refreshMobileCanvasCursor();
     }
 
     // Canvas setup
@@ -10008,7 +10016,7 @@ async function loadPDF(file) {
       });
     });
     window.addEventListener('dragend', () => setCanvasDropActive(false));
-    scrollContainer?.addEventListener('scroll', updateMobileCanvasCursor, { passive: true });
+    scrollContainer?.addEventListener('scroll', refreshMobileCanvasCursor, { passive: true });
 
 function getWorldPoint(e) {
       const rect = canvas.getBoundingClientRect();
@@ -10244,6 +10252,21 @@ function getWorldPoint(e) {
       mobileCanvasCursor.classList.add('active');
     }
 
+    function refreshMobileCanvasCursor() {
+      if (!mobileCanvasCursor) return;
+      if (!isMobileLayout() || !state.img) {
+        updateMobileCanvasCursor();
+        return;
+      }
+      if (!mobileCursorScreenOffset) mobileCursorScreenOffset = { x: 0, y: 0 };
+      syncMobileCursorWorldFromScreen();
+      updateMobileCanvasCursor();
+      requestAnimationFrame(() => {
+        syncMobileCursorWorldFromScreen();
+        updateMobileCanvasCursor();
+      });
+    }
+
     function setMobileCanvasCursor(wp) {
       if (!wp || !state.img) return;
       mobileCursorWorld = clampWorldPointToImage(wp);
@@ -10344,6 +10367,7 @@ function getWorldPoint(e) {
       const offset = getImageOffset();
       scrollContainer.scrollLeft = mobilePinchGesture.worldX * state.zoom + offset.x - (center.x - containerRect.left);
       scrollContainer.scrollTop = mobilePinchGesture.worldY * state.zoom + offset.y - (center.y - containerRect.top);
+      refreshMobileCanvasCursor();
     }
 
     function addScalePointFromWorld(wp) {
@@ -10594,6 +10618,7 @@ function getWorldPoint(e) {
         if (mobileTouchPointers.size < 2) {
           mobilePinchGesture = null;
           mobileGestureCooldownUntil = Date.now() + 260;
+          refreshMobileCanvasCursor();
         } else {
           startMobilePinchGesture();
         }
@@ -10624,6 +10649,7 @@ function getWorldPoint(e) {
         mobilePinchGesture = null;
         mobileGestureCooldownUntil = Date.now() + 260;
       }
+      refreshMobileCanvasCursor();
       return false;
     }
 
