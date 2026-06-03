@@ -2620,6 +2620,66 @@
         to { opacity: 1; transform: translateY(0); }
       }
 
+      .mobile-canvas-cursor {
+        position: absolute;
+        z-index: 54;
+        width: 34px;
+        height: 34px;
+        transform: translate(-50%, -50%);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.28));
+      }
+
+      .mobile-canvas-cursor.active {
+        display: flex;
+      }
+
+      .mobile-canvas-cursor::before,
+      .mobile-canvas-cursor::after {
+        content: '';
+        position: absolute;
+        background: #0f172a;
+        border-radius: 999px;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+      }
+
+      .mobile-canvas-cursor::before {
+        width: 2px;
+        height: 34px;
+      }
+
+      .mobile-canvas-cursor::after {
+        width: 34px;
+        height: 2px;
+      }
+
+      .mobile-canvas-cursor-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--hakuou-blue);
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 2px rgba(0, 82, 154, 0.22);
+      }
+
+      .mobile-canvas-cursor-label {
+        position: absolute;
+        left: 22px;
+        top: 22px;
+        min-width: max-content;
+        padding: 4px 7px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #334155;
+        font-size: 10px;
+        font-weight: 900;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+      }
+
       .mobile-help-popover {
         position: fixed;
         inset: 0;
@@ -4552,6 +4612,10 @@ body.stamp-modal-open header{ pointer-events: none; }
         <button class="canvas-ctrl-btn" id="globalRedoBtn" title="やり直し">↪</button>
         <button class="canvas-ctrl-btn mobile-help-btn" id="mobileHelpBtn" title="使い方" aria-pressed="false">?</button>
       </div>
+      <div class="mobile-canvas-cursor" id="mobileCanvasCursor" aria-hidden="true" hidden>
+        <span class="mobile-canvas-cursor-dot"></span>
+        <span class="mobile-canvas-cursor-label">タップで確定</span>
+      </div>
       <div class="mobile-mode-tools" id="mobileModeTools" aria-label="モバイルモード別操作" hidden>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="home">
           <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="home-add">+ 初期位置</button>
@@ -5292,6 +5356,7 @@ function getStampDef(stampOrType) {
     const scrollContainer = document.getElementById('canvasScrollContainer');
     const canvasWrapper = document.getElementById('canvasWrapper');
     const canvasHint = document.getElementById('canvasHint');
+    const mobileCanvasCursor = document.getElementById('mobileCanvasCursor');
     const fileInput = document.getElementById('fileInput');
     const fileUpload = document.getElementById('fileUpload');
     const loadedFileCard = document.getElementById('loadedFileCard');
@@ -5948,6 +6013,7 @@ function openStampModal(){
       state.floorplanDataUrl = '';
       state.imgWidth = 0;
       state.imgHeight = 0;
+      hideMobileCanvasCursor();
       state.zoom = 1;
       state.cropMode = false;
       state.cropSelection = null;
@@ -6506,6 +6572,7 @@ function openStampModal(){
         canvas.height = scrollContainer.clientHeight;
         canvasWrapper.style.width = '100%';
         canvasWrapper.style.height = '100%';
+        hideMobileCanvasCursor();
       } else {
         const padding = 100;
         const w = state.imgWidth * state.zoom + padding * 2;
@@ -6516,6 +6583,7 @@ function openStampModal(){
         canvasWrapper.style.height = canvas.height + 'px';
       }
       draw();
+      updateMobileCanvasCursor();
     }
 
     function centerCanvas() {
@@ -9071,6 +9139,7 @@ function draw() {
       updateWorkflowLocks();
       updateHint();
       updateSubModeUI();
+      updateMobileCanvasCursor();
       // ⑥ 初期位置追加の未配置状態は、homeモード以外に切り替えたら表示状態だけ解除
       if (mode !== 'home') {
         const addBtn = document.getElementById('addHomeBtn');
@@ -9876,6 +9945,7 @@ async function loadPDF(file) {
       });
     });
     window.addEventListener('dragend', () => setCanvasDropActive(false));
+    scrollContainer?.addEventListener('scroll', updateMobileCanvasCursor, { passive: true });
 
 function getWorldPoint(e) {
       const rect = canvas.getBoundingClientRect();
@@ -9988,6 +10058,7 @@ function getWorldPoint(e) {
     const mobileTouchPointers = new Map();
     let mobilePinchGesture = null;
     let mobileCanvasTap = null;
+    let mobileCursorWorld = null;
     let mobileGestureCooldownUntil = 0;
 
     function isRouteDemoRecording() {
@@ -10005,6 +10076,46 @@ function getWorldPoint(e) {
 
     function isMobileTouchPointer(e) {
       return isMobileLayout() && e.pointerType === 'touch';
+    }
+
+    function hideMobileCanvasCursor() {
+      mobileCursorWorld = null;
+      if (!mobileCanvasCursor) return;
+      mobileCanvasCursor.hidden = true;
+      mobileCanvasCursor.classList.remove('active');
+    }
+
+    function updateMobileCanvasCursor() {
+      if (!mobileCanvasCursor) return;
+      if (!isMobileLayout() || !state.img || !mobileCursorWorld) {
+        mobileCanvasCursor.hidden = true;
+        mobileCanvasCursor.classList.remove('active');
+        return;
+      }
+      const areaRect = canvasArea.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const offset = getImageOffset();
+      const z = state.zoom || 1;
+      const left = canvasRect.left - areaRect.left + offset.x + mobileCursorWorld.x * z;
+      const top = canvasRect.top - areaRect.top + offset.y + mobileCursorWorld.y * z;
+      mobileCanvasCursor.style.left = `${left}px`;
+      mobileCanvasCursor.style.top = `${top}px`;
+      mobileCanvasCursor.hidden = false;
+      mobileCanvasCursor.classList.add('active');
+    }
+
+    function setMobileCanvasCursor(wp) {
+      if (!wp || !state.img) return;
+      mobileCursorWorld = { x: wp.x, y: wp.y };
+      updateMobileCanvasCursor();
+    }
+
+    function isMobileCursorConfirmTap(wp) {
+      if (!mobileCursorWorld || !wp) return false;
+      const z = state.zoom || 1;
+      const dx = (wp.x - mobileCursorWorld.x) * z;
+      const dy = (wp.y - mobileCursorWorld.y) * z;
+      return Math.hypot(dx, dy) <= 28;
     }
 
     function getMobilePointerPair() {
@@ -10069,16 +10180,7 @@ function getWorldPoint(e) {
     }
 
     function shouldDeferMobileCanvasTap(e) {
-      if (!state.img || state.isPanning || state.cropMode) return false;
-      const wp = getWorldPoint(e);
-      if (state.measureActive) return true;
-      if (state.textToolActive) return findTextAt(wp) === -1;
-      if (state.routeDemoReflectivePolePlacementActive) return !isReflectivePoleHitAt(wp);
-      if (state.currentMode === 'scale' || state.currentMode === 'home') return true;
-      if (state.currentMode === 'station') return findStationAt(wp) === -1;
-      if (state.currentMode === 'stamp') return findStampAt(wp) === -1;
-      if (state.currentMode === 'route') return !isReflectivePoleHitAt(wp);
-      return false;
+      return !!(state.img && !state.isPanning && !state.cropMode);
     }
 
     function handleCanvasTapAction(wp) {
@@ -10293,7 +10395,12 @@ function getWorldPoint(e) {
         e.stopPropagation();
         mobileCanvasTap = null;
         if (!canvasTap.moved && Date.now() >= mobileGestureCooldownUntil) {
-          handleCanvasTapAction(getWorldPoint(e));
+          const wp = getWorldPoint(e);
+          if (isMobileCursorConfirmTap(wp)) {
+            handleCanvasTapAction(mobileCursorWorld || wp);
+          } else {
+            setMobileCanvasCursor(wp);
+          }
         }
         return true;
       }
