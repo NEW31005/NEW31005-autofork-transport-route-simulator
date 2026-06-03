@@ -2610,6 +2610,39 @@
         color: #b42318;
       }
 
+      .mobile-tool-btn.station-delete {
+        border-color: rgba(220, 53, 69, 0.38);
+        color: #b42318;
+      }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"].active {
+        display: grid;
+        grid-template-columns: repeat(4, max-content);
+        align-items: center;
+      }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-loading"] {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-unloading"] {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-delete"] {
+        grid-column: 3;
+        grid-row: 1;
+      }
+
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-up"],
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-left"],
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-down"],
+      .mobile-mode-tool-row[data-mobile-tools-mode="station"] [data-mobile-tool-action="station-right"] {
+        grid-row: 2;
+      }
+
       .mobile-tool-btn.icon {
         width: 40px;
         padding: 0;
@@ -4632,8 +4665,9 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="home-rotate-right" title="右へ45度">↻</button>
         </div>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="station">
-          <button class="mobile-tool-btn station-load" type="button" data-mobile-tool-action="station-loading">P 荷積み</button>
-          <button class="mobile-tool-btn station-unload" type="button" data-mobile-tool-action="station-unloading">D 荷下ろし</button>
+          <button class="mobile-tool-btn station-load" type="button" data-mobile-tool-action="station-loading">荷積み</button>
+          <button class="mobile-tool-btn station-unload" type="button" data-mobile-tool-action="station-unloading">荷下ろし</button>
+          <button class="mobile-tool-btn station-delete" type="button" data-mobile-tool-action="station-delete">削除</button>
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-up" title="上へ50mm">↑</button>
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-left" title="左へ50mm">←</button>
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-down" title="下へ50mm">↓</button>
@@ -6427,8 +6461,9 @@ function openStampModal(){
       mirrorMobileToolButton('home-rotate-left', 'homeRotateLeftBtn', '↺');
       mirrorMobileToolButton('home-rotate-right', 'homeRotateRightBtn', '↻');
 
-      setMobileToolButtonState('station-loading', !hasScale, 'P 荷積み');
-      setMobileToolButtonState('station-unloading', !hasScale, 'D 荷下ろし');
+      setMobileToolButtonState('station-loading', !hasScale, '荷積み');
+      setMobileToolButtonState('station-unloading', !hasScale, '荷下ろし');
+      setMobileToolButtonState('station-delete', !getSelectedStation(), '削除');
       document.querySelector('[data-mobile-tool-action="station-loading"]')?.classList.toggle('active', state.stationPlaceType === 'loading');
       document.querySelector('[data-mobile-tool-action="station-unloading"]')?.classList.toggle('active', state.stationPlaceType === 'unloading');
       mirrorMobileToolButton('station-up', 'stationMoveUpBtn', '↑');
@@ -6486,6 +6521,11 @@ function openStampModal(){
       }
       if (action === 'home-delete') {
         deleteHomeById(state.activeHomeId);
+        updateMobileModeTools();
+        return;
+      }
+      if (action === 'station-delete') {
+        deleteSelectedStation();
         updateMobileModeTools();
         return;
       }
@@ -8936,6 +8976,34 @@ function draw() {
       return true;
     }
 
+    function deleteStationAt(index, options = {}) {
+      if (!state.stations[index]) {
+        showToast('削除するステーションを選択してください', 'warning');
+        return false;
+      }
+      const name = state.stations[index].name || `ST${index + 1}`;
+      state.stations.splice(index, 1);
+      mobileLastDirectStationTap = null;
+      if (state.selectedStationIndex === index) {
+        state.selectedStationIndex = null;
+      } else if (state.selectedStationIndex > index) {
+        state.selectedStationIndex--;
+      }
+      saveState();
+      updateStationList();
+      draw();
+      if (options.toast !== false) showToast(`${name} を削除しました`);
+      return true;
+    }
+
+    function deleteSelectedStation() {
+      if (state.selectedStationIndex === null || state.selectedStationIndex === undefined) {
+        showToast('削除するステーションを選択してください', 'warning');
+        return false;
+      }
+      return deleteStationAt(state.selectedStationIndex);
+    }
+
     function updateStationList() {
       const list = document.getElementById('stationList');
       if (!list) return;
@@ -8967,15 +9035,7 @@ function draw() {
         item.addEventListener('click', (e) => {
           if (e.target.classList.contains('list-delete')) {
             const deleteIndex = parseInt(e.target.dataset.index, 10);
-            state.stations.splice(deleteIndex, 1);
-            if (state.selectedStationIndex === deleteIndex) {
-              state.selectedStationIndex = null;
-            } else if (state.selectedStationIndex > deleteIndex) {
-              state.selectedStationIndex--;
-            }
-            saveState();
-            updateStationList();
-            draw();
+            deleteStationAt(deleteIndex);
             return;
           }
           selectStation(parseInt(item.dataset.index, 10));
@@ -9213,6 +9273,7 @@ function draw() {
 
       state.currentMode = mode;
       if (mode !== 'stamp') lastNonStampMode = mode;
+      if (mode !== 'station') mobileLastDirectStationTap = null;
 
       syncModePanelVisibility();
 
@@ -10149,6 +10210,7 @@ function getWorldPoint(e) {
     let mobileCursorGesture = null;
     let mobileCursorWorld = null;
     let mobileCursorScreenOffset = null;
+    let mobileLastDirectStationTap = null;
     let mobileGestureCooldownUntil = 0;
 
     function isRouteDemoRecording() {
@@ -10446,6 +10508,24 @@ function getWorldPoint(e) {
       return true;
     }
 
+    function handleMobileDirectStationTap(wp) {
+      if (state.currentMode !== 'station' || !state.metersPerPixel) return false;
+      const stationIndex = findStationAt(wp);
+      if (stationIndex === -1) return false;
+      const now = Date.now();
+      const isDoubleTap = mobileLastDirectStationTap &&
+        mobileLastDirectStationTap.index === stationIndex &&
+        now - mobileLastDirectStationTap.time <= 360;
+      selectStation(stationIndex, { toast: true });
+      if (isDoubleTap) {
+        mobileLastDirectStationTap = null;
+        openStationModal(stationIndex);
+      } else {
+        mobileLastDirectStationTap = { index: stationIndex, time: now };
+      }
+      return true;
+    }
+
     function shouldDeferMobileCanvasTap(e) {
       return !!(state.img && !state.isPanning && !state.cropMode);
     }
@@ -10660,6 +10740,7 @@ function getWorldPoint(e) {
         if (!cursorGesture.moved && Date.now() >= mobileGestureCooldownUntil) {
           const tapWorld = getWorldPoint(e);
           if (handleMobileDirectHomeTap(tapWorld)) return true;
+          if (handleMobileDirectStationTap(tapWorld)) return true;
           ensureMobileCanvasCursor();
           if (mobileCursorWorld) handleCanvasTapAction(mobileCursorWorld);
         }
@@ -12222,13 +12303,8 @@ measureBtn?.addEventListener('click', () => {
 
     document.getElementById('deleteStationBtn').addEventListener('click', () => {
       if (state.selectedStationIndex === null) return;
-      state.stations.splice(state.selectedStationIndex, 1);
       document.getElementById('stationModal').classList.remove('active');
-      state.selectedStationIndex = null;
-      saveState();
-      updateStationList();
-      draw();
-      showToast('削除しました');
+      deleteSelectedStation();
     });
 
     // Export/Import
