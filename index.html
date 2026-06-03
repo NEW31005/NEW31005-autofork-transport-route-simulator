@@ -9987,7 +9987,7 @@ function getWorldPoint(e) {
     let cropDrag = null;
     const mobileTouchPointers = new Map();
     let mobilePinchGesture = null;
-    let mobileScaleTap = null;
+    let mobileCanvasTap = null;
     let mobileGestureCooldownUntil = 0;
 
     function isRouteDemoRecording() {
@@ -10024,7 +10024,7 @@ function getWorldPoint(e) {
       const [a, b] = getMobilePointerPair();
       if (!a || !b) return;
       cancelCanvasInteractionState();
-      mobileScaleTap = null;
+      mobileCanvasTap = null;
       const center = getPointerCenter(a, b);
       const rect = canvas.getBoundingClientRect();
       const offset = getImageOffset();
@@ -10063,6 +10063,158 @@ function getWorldPoint(e) {
       saveState();
     }
 
+    function isReflectivePoleHitAt(wp) {
+      const stampIndex = findStampAt(wp);
+      return stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex]);
+    }
+
+    function shouldDeferMobileCanvasTap(e) {
+      if (!state.img || state.isPanning || state.cropMode) return false;
+      const wp = getWorldPoint(e);
+      if (state.measureActive) return true;
+      if (state.textToolActive) return findTextAt(wp) === -1;
+      if (state.routeDemoReflectivePolePlacementActive) return !isReflectivePoleHitAt(wp);
+      if (state.currentMode === 'scale' || state.currentMode === 'home') return true;
+      if (state.currentMode === 'station') return findStationAt(wp) === -1;
+      if (state.currentMode === 'stamp') return findStampAt(wp) === -1;
+      if (state.currentMode === 'route') return !isReflectivePoleHitAt(wp);
+      return false;
+    }
+
+    function handleCanvasTapAction(wp) {
+      if (state.measureActive) {
+        if (!state.metersPerPixel) {
+          showToast('先に縮尺を確定してください（📏）', 'warning');
+          return;
+        }
+        if (!state.measurePoints) state.measurePoints = [];
+        if (state.measurePoints.length >= 2) {
+          state.measurePoints = [];
+          state.measureDistanceM = null;
+        }
+        state.measurePoints.push({ x: wp.x, y: wp.y });
+        if (state.measurePoints.length === 2) {
+          const p1 = state.measurePoints[0];
+          const p2 = state.measurePoints[1];
+          const distM = Math.hypot(p1.x - p2.x, p1.y - p2.y) * state.metersPerPixel;
+          state.measureDistanceM = distM;
+          showToast(`計測：${distM.toFixed(2)} m`);
+        } else {
+          showToast('計測：2点目をクリック');
+        }
+        saveState();
+        draw();
+        return;
+      }
+
+      if (!state.img) return;
+
+      if (state.textToolActive) {
+        const hitIndex = findTextAt(wp);
+        if (hitIndex !== -1) {
+          state.selectedTextId = state.textAnnotations[hitIndex].id;
+          updateTextToolUI();
+          requestRedraw();
+        } else {
+          placeTextAnnotation(wp);
+        }
+        return;
+      }
+
+      if (state.routeDemoReflectivePolePlacementActive) {
+        if (!state.metersPerPixel) {
+          showToast('先に縮尺を設定してください', 'warning');
+          return;
+        }
+        const stampIndex = findStampAt(wp);
+        if (stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex])) {
+          const s = state.stamps[stampIndex];
+          state.selectedStampId = s.id;
+          updateStampButtons();
+          updateStampEditUI();
+          updateRouteDemoControlUI();
+          requestRedraw();
+          return;
+        }
+        placeReflectivePoleStampAt(wp);
+        draw();
+        return;
+      }
+
+      switch (state.currentMode) {
+        case 'scale':
+          addScalePointFromWorld(wp);
+          break;
+        case 'home': {
+          if (!state.metersPerPixel) {
+            showToast('先に縮尺を確定してください（📏）', 'warning');
+            break;
+          }
+          const existingHome = getHomeById(state.activeHomeId);
+          if (existingHome) {
+            existingHome.x = wp.x;
+            existingHome.y = wp.y;
+            normalizeHomePosition(existingHome);
+          } else {
+            state.homePositions.push({ id: state.activeHomeId, x: wp.x, y: wp.y, rotDeg: 0 });
+          }
+          state.routes.forEach(r => {
+            if (r.homeId === state.activeHomeId && r.points.length > 0) {
+              syncRouteStartPointToHome(r);
+            }
+          });
+          saveState();
+          showToast(`初期位置 ${state.activeHomeId} を設定`);
+          state.pendingHomePlacement = false;
+          document.getElementById('addHomeBtn')?.classList.remove('active');
+          break;
+        }
+        case 'station': {
+          if (!state.metersPerPixel) {
+            showToast('先に縮尺を確定してください（📏）', 'warning');
+            break;
+          }
+          const stationIndex = findStationAt(wp);
+          if (stationIndex !== -1) {
+            selectStation(stationIndex);
+            break;
+          }
+          const snapped = applyPlacementSnap(wp);
+          const stationType = state.stationPlaceType || 'loading';
+          state.stations.push({
+            x: snapped.x,
+            y: snapped.y,
+            name: getNextStationName(),
+            loadingCount: stationType === 'loading' ? 1 : 0,
+            unloadingCount: stationType === 'unloading' ? 1 : 0,
+            angle: 0
+          });
+          state.selectedStationIndex = state.stations.length - 1;
+          updateStationList();
+          saveState();
+          break;
+        }
+        case 'stamp':
+          handleStampClick(wp);
+          break;
+        case 'route': {
+          const stampIndex = findStampAt(wp);
+          if (stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex])) {
+            const s = state.stamps[stampIndex];
+            state.selectedStampId = s.id;
+            updateStampButtons();
+            updateStampEditUI();
+            updateRouteDemoControlUI();
+            requestRedraw();
+          } else {
+            handleRouteClick(wp);
+          }
+          break;
+        }
+      }
+      draw();
+    }
+
     function handleMobilePointerDown(e) {
       if (!isMobileTouchPointer(e)) return false;
       mobileTouchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -10081,8 +10233,8 @@ function getWorldPoint(e) {
         return true;
       }
 
-      if (state.currentMode === 'scale' && state.img) {
-        mobileScaleTap = {
+      if (shouldDeferMobileCanvasTap(e)) {
+        mobileCanvasTap = {
           pointerId: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
@@ -10107,9 +10259,9 @@ function getWorldPoint(e) {
         updateMobilePinchGesture();
         return true;
       }
-      if (mobileScaleTap && mobileScaleTap.pointerId === e.pointerId) {
-        if (Math.hypot(e.clientX - mobileScaleTap.startX, e.clientY - mobileScaleTap.startY) > 8) {
-          mobileScaleTap.moved = true;
+      if (mobileCanvasTap && mobileCanvasTap.pointerId === e.pointerId) {
+        if (Math.hypot(e.clientX - mobileCanvasTap.startX, e.clientY - mobileCanvasTap.startY) > 8) {
+          mobileCanvasTap.moved = true;
         }
         e.preventDefault();
         e.stopPropagation();
@@ -10121,7 +10273,7 @@ function getWorldPoint(e) {
     function handleMobilePointerUp(e) {
       if (!isMobileTouchPointer(e)) return false;
       const wasPinching = !!mobilePinchGesture;
-      const scaleTap = mobileScaleTap && mobileScaleTap.pointerId === e.pointerId ? mobileScaleTap : null;
+      const canvasTap = mobileCanvasTap && mobileCanvasTap.pointerId === e.pointerId ? mobileCanvasTap : null;
       mobileTouchPointers.delete(e.pointerId);
 
       if (wasPinching) {
@@ -10136,13 +10288,12 @@ function getWorldPoint(e) {
         return true;
       }
 
-      if (scaleTap) {
+      if (canvasTap) {
         e.preventDefault();
         e.stopPropagation();
-        mobileScaleTap = null;
-        if (!scaleTap.moved && Date.now() >= mobileGestureCooldownUntil) {
-          addScalePointFromWorld(getWorldPoint(e));
-          draw();
+        mobileCanvasTap = null;
+        if (!canvasTap.moved && Date.now() >= mobileGestureCooldownUntil) {
+          handleCanvasTapAction(getWorldPoint(e));
         }
         return true;
       }
@@ -10153,7 +10304,7 @@ function getWorldPoint(e) {
     function handleMobilePointerCancel(e) {
       if (!isMobileTouchPointer(e)) return false;
       mobileTouchPointers.delete(e.pointerId);
-      mobileScaleTap = null;
+      mobileCanvasTap = null;
       if (mobilePinchGesture && mobileTouchPointers.size < 2) {
         mobilePinchGesture = null;
         mobileGestureCooldownUntil = Date.now() + 260;
