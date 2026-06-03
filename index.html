@@ -4620,6 +4620,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       <div class="mobile-mode-tools" id="mobileModeTools" aria-label="モバイルモード別操作" hidden>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="home">
           <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="home-add">+ 初期位置</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="home-delete">削除</button>
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="home-rotate-left" title="左へ45度">↺</button>
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="home-rotate-right" title="右へ45度">↻</button>
         </div>
@@ -5207,6 +5208,26 @@ body.stamp-modal-open header{ pointer-events: none; }
       if (typeof home.rotDeg !== 'number') home.rotDeg = normalizeHomeRotDeg(home.rotDeg);
       home.rotDeg = normalizeHomeRotDeg(home.rotDeg);
       return home;
+    }
+
+    function getHomeHitRadiusWorld() {
+      const z = Math.max(0.1, state.zoom || 1);
+      const touchRadiusWorld = 30 / z;
+      if (!state.homeSimpleMode && state.metersPerPixel) {
+        const imageRadiusWorld = Math.max(HOME_MARKER_DEF.wM, HOME_MARKER_DEF.hM) / state.metersPerPixel / 2;
+        return Math.max(imageRadiusWorld, touchRadiusWorld);
+      }
+      return Math.max(state.homeRadiusWorld || 18, touchRadiusWorld);
+    }
+
+    function findHomeAt(wp) {
+      if (!wp || !Array.isArray(state.homePositions)) return -1;
+      const radius = getHomeHitRadiusWorld();
+      for (let i = state.homePositions.length - 1; i >= 0; i--) {
+        const home = state.homePositions[i];
+        if (Math.hypot(wp.x - home.x, wp.y - home.y) <= radius) return i;
+      }
+      return -1;
     }
 
     // Helper: get first home position
@@ -6377,6 +6398,7 @@ function openStampModal(){
 
       const hasScale = !!state.metersPerPixel;
       mirrorMobileToolButton('home-add', 'addHomeBtn', '+ 初期位置');
+      setMobileToolButtonState('home-delete', !getHomeById(state.activeHomeId), '削除');
       mirrorMobileToolButton('home-rotate-left', 'homeRotateLeftBtn', '↺');
       mirrorMobileToolButton('home-rotate-right', 'homeRotateRightBtn', '↻');
 
@@ -6434,6 +6456,11 @@ function openStampModal(){
         }
         setMode('stamp');
         openStampModal();
+        updateMobileModeTools();
+        return;
+      }
+      if (action === 'home-delete') {
+        deleteHomeById(state.activeHomeId);
         updateMobileModeTools();
         return;
       }
@@ -8762,6 +8789,48 @@ function draw() {
     }
 
     // ⑥ 初期位置一覧の更新
+    function selectHomeById(id, options = {}) {
+      const home = getHomeById(id);
+      if (!home) return false;
+      state.activeHomeId = home.id;
+      state.pendingHomePlacement = false;
+      document.getElementById('addHomeBtn')?.classList.remove('active');
+      updateHomeList();
+      updateHomeMarkerControls();
+      draw();
+      if (options.toast !== false) showToast(`初期位置 ${formatHomeIdLabel(home.id)} を選択`);
+      return true;
+    }
+
+    function deleteHomeById(id, options = {}) {
+      const home = getHomeById(id);
+      if (!home) {
+        showToast('削除する初期位置を選択してください', 'warning');
+        return false;
+      }
+      const linkedRoutes = state.routes.filter(r => r.homeId === id);
+      if (linkedRoutes.length > 0 && options.confirm !== false) {
+        if (!confirm(`この初期位置は${linkedRoutes.length}個のルートに接続されています。削除すると接続が解除されます。続行しますか？`)) return false;
+      }
+      const fallbackId = state.homePositions.find(hp => hp.id !== id)?.id || null;
+      linkedRoutes.forEach(r => {
+        r.homeId = fallbackId;
+        if (fallbackId) syncRouteStartPointToHome(r);
+      });
+      state.homePositions = state.homePositions.filter(hp => hp.id !== id);
+      if (state.activeHomeId === id) {
+        state.activeHomeId = state.homePositions.length > 0 ? state.homePositions[0].id : 'a';
+      }
+      state.pendingHomePlacement = false;
+      document.getElementById('addHomeBtn')?.classList.remove('active');
+      saveState();
+      updateHomeList();
+      updateRouteList();
+      draw();
+      showToast(`初期位置 ${formatHomeIdLabel(id)} を削除`);
+      return true;
+    }
+
     function updateHomeList() {
       const list = document.getElementById('homeList');
       if (!list) return;
@@ -8788,29 +8857,10 @@ function draw() {
       list.querySelectorAll('.list-item').forEach(item => {
         item.addEventListener('click', (e) => {
           if (e.target.classList.contains('list-delete')) {
-            const id = e.target.dataset.id;
-            const linkedRoutes = state.routes.filter(r => r.homeId === id);
-            if (linkedRoutes.length > 0) {
-              if (!confirm(`この初期位置は${linkedRoutes.length}個のルートに接続されています。削除すると接続が解除されます。続行しますか？`)) return;
-              const fallbackId = state.homePositions.find(hp => hp.id !== id)?.id || null;
-              linkedRoutes.forEach(r => {
-                r.homeId = fallbackId;
-                if (fallbackId) {
-                  syncRouteStartPointToHome(r);
-                }
-              });
-            }
-            state.homePositions = state.homePositions.filter(hp => hp.id !== id);
-            if (state.activeHomeId === id) {
-              state.activeHomeId = state.homePositions.length > 0 ? state.homePositions[0].id : 'a';
-            }
-            saveState();
-            draw();
+            deleteHomeById(e.target.dataset.id);
             return;
           }
-          state.activeHomeId = item.dataset.id;
-          updateHomeMarkerControls();
-          draw();
+          selectHomeById(item.dataset.id, { toast: false });
         });
       });
       updateHomeMarkerControls();
@@ -10312,6 +10362,39 @@ function getWorldPoint(e) {
       return stampIndex !== -1 && isReflectivePoleStamp(state.stamps[stampIndex]);
     }
 
+    function handleHomeModeClick(wp) {
+      if (!state.metersPerPixel) {
+        showToast('先に縮尺を確定してください（📏）', 'warning');
+        return true;
+      }
+      const homeIndex = findHomeAt(wp);
+      if (homeIndex !== -1) {
+        const home = state.homePositions[homeIndex];
+        selectHomeById(home.id);
+        return true;
+      }
+
+      const existingHome = getHomeById(state.activeHomeId);
+      if (existingHome) {
+        existingHome.x = wp.x;
+        existingHome.y = wp.y;
+        normalizeHomePosition(existingHome);
+      } else {
+        state.homePositions.push({ id: state.activeHomeId, x: wp.x, y: wp.y, rotDeg: 0 });
+      }
+      state.routes.forEach(r => {
+        if (r.homeId === state.activeHomeId && r.points.length > 0) {
+          syncRouteStartPointToHome(r);
+        }
+      });
+      saveState();
+      updateHomeList();
+      showToast(`初期位置 ${formatHomeIdLabel(state.activeHomeId)} を設定`);
+      state.pendingHomePlacement = false;
+      document.getElementById('addHomeBtn')?.classList.remove('active');
+      return true;
+    }
+
     function shouldDeferMobileCanvasTap(e) {
       return !!(state.img && !state.isPanning && !state.cropMode);
     }
@@ -10380,30 +10463,9 @@ function getWorldPoint(e) {
         case 'scale':
           addScalePointFromWorld(wp);
           break;
-        case 'home': {
-          if (!state.metersPerPixel) {
-            showToast('先に縮尺を確定してください（📏）', 'warning');
-            break;
-          }
-          const existingHome = getHomeById(state.activeHomeId);
-          if (existingHome) {
-            existingHome.x = wp.x;
-            existingHome.y = wp.y;
-            normalizeHomePosition(existingHome);
-          } else {
-            state.homePositions.push({ id: state.activeHomeId, x: wp.x, y: wp.y, rotDeg: 0 });
-          }
-          state.routes.forEach(r => {
-            if (r.homeId === state.activeHomeId && r.points.length > 0) {
-              syncRouteStartPointToHome(r);
-            }
-          });
-          saveState();
-          showToast(`初期位置 ${state.activeHomeId} を設定`);
-          state.pendingHomePlacement = false;
-          document.getElementById('addHomeBtn')?.classList.remove('active');
+        case 'home':
+          handleHomeModeClick(wp);
           break;
-        }
         case 'station': {
           if (!state.metersPerPixel) {
             showToast('先に縮尺を確定してください（📏）', 'warning');
@@ -10909,30 +10971,7 @@ function getWorldPoint(e) {
           addScalePointFromWorld(wp);
           break;
         case 'home':
-          if (!state.metersPerPixel) {
-            showToast('先に縮尺を確定してください（📏）', 'warning');
-            break;
-          }
-          // ⑥ 現在選択中のactiveHomeIdの位置を更新or新規作成
-          const existingHome = getHomeById(state.activeHomeId);
-          if (existingHome) {
-            existingHome.x = wp.x;
-            existingHome.y = wp.y;
-            normalizeHomePosition(existingHome);
-          } else {
-            state.homePositions.push({ id: state.activeHomeId, x: wp.x, y: wp.y, rotDeg: 0 });
-          }
-          // 関連ルートの先頭点を更新
-          state.routes.forEach(r => {
-            if (r.homeId === state.activeHomeId && r.points.length > 0) {
-              syncRouteStartPointToHome(r);
-            }
-          });
-          saveState();
-          showToast(`初期位置 ${state.activeHomeId} を設定`);
-          // ⑥ 追加ボタン押下後の未配置状態を終了（配置確定）
-          state.pendingHomePlacement = false;
-          document.getElementById('addHomeBtn')?.classList.remove('active');
+          handleHomeModeClick(wp);
           break;
         case 'station': {
           if (!state.metersPerPixel) {
@@ -11700,6 +11739,7 @@ function handleStampClick(wp) {
       const px = Math.hypot(a.x - b.x, a.y - b.y);
       const realM = parseFloat(document.getElementById('realDistance').value) || 0;
       if (px > 0 && realM > 0) {
+        const hadScale = !!state.metersPerPixel;
         state.metersPerPixel = realM / px;
         state.scalePointsVisible = false;
         showToast('縮尺を設定');
@@ -11707,6 +11747,11 @@ function handleStampClick(wp) {
         const scaleStatus = document.getElementById('scaleStatus');
         if (scaleStatus) scaleStatus.style.display = 'block';
         saveState();
+        if (!hadScale) {
+          setMode('home');
+          syncMobileModeUI();
+          showToast('初期位置を設定してください');
+        }
       }
     }
 
