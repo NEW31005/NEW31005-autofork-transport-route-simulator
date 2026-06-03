@@ -2185,6 +2185,18 @@
         font-weight: 900;
       }
 
+      .mobile-canvas-file-input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        z-index: 2;
+        cursor: pointer;
+      }
+
+      .mobile-canvas-upload > span {
+        pointer-events: none;
+      }
+
       .mobile-canvas-upload:not([hidden]) {
         display: flex;
       }
@@ -4954,11 +4966,12 @@ body.stamp-modal-open header{ pointer-events: none; }
           <canvas id="mainCanvas"></canvas>
         </div>
       </div>
-      <button class="mobile-canvas-upload" id="mobileCanvasUploadBtn" type="button" hidden>
+      <label class="mobile-canvas-upload" id="mobileCanvasUploadBtn" role="button" tabindex="0" hidden>
+        <input class="mobile-canvas-file-input" type="file" id="mobileFileInput" accept="image/*,.pdf">
         <span class="mobile-canvas-upload-icon" aria-hidden="true"><span class="mobile-upload-glyph"></span></span>
         <span class="mobile-canvas-upload-title">図面・写真を読み込んで下さい</span>
         <span class="mobile-canvas-upload-sub">PDF / PNG / JPG</span>
-      </button>
+      </label>
       <div class="canvas-hint" id="canvasHint">
         📏 縮尺モード：2点をクリック
       </div>
@@ -5809,6 +5822,7 @@ function getStampDef(stampOrType) {
     const loadedFileName = document.getElementById('loadedFileName');
     const loadedFileDeleteBtn = document.getElementById('loadedFileDeleteBtn');
     const mobileCanvasUploadBtn = document.getElementById('mobileCanvasUploadBtn');
+    const mobileFileInput = document.getElementById('mobileFileInput');
     const modeButtons = document.querySelectorAll('.mode-selector:not(.sub) .mode-btn');
     const subModeButtons = document.querySelectorAll('.mode-selector.sub .mode-btn');
     const mobilePanelOverlay = document.getElementById('mobilePanelOverlay');
@@ -9932,10 +9946,20 @@ function draw() {
       clickExistingControl('reportBtn');
     });
     mobilePanelOverlay?.addEventListener('click', closeMobilePanels);
-    mobileCanvasUploadBtn?.addEventListener('click', () => {
+    mobileCanvasUploadBtn?.addEventListener('pointerdown', () => {
       closeMobilePanels();
       closeMobileHelpPopup();
-      fileInput?.click();
+      if (mobileFileInput) mobileFileInput.value = '';
+    });
+    mobileCanvasUploadBtn?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      closeMobilePanels();
+      closeMobileHelpPopup();
+      if (mobileFileInput) {
+        mobileFileInput.value = '';
+        mobileFileInput.click();
+      }
     });
     mobileHelpBtn?.addEventListener('click', toggleMobileHelpPopup);
     mobileHelpPopoverBtn?.addEventListener('click', closeMobileHelpPopup);
@@ -10349,15 +10373,32 @@ function draw() {
       }
     });
 
+    function getUploadFileExtension(file) {
+      const name = String(file?.name || '').toLowerCase();
+      const match = name.match(/\.([a-z0-9]+)$/i);
+      return match ? match[1] : '';
+    }
+
+    function getUploadFileKind(file) {
+      const type = String(file?.type || '').toLowerCase();
+      const ext = getUploadFileExtension(file);
+      if (type === 'application/pdf' || type === 'application/x-pdf' || ext === 'pdf') return 'pdf';
+      if (type.startsWith('image/')) return 'image';
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'heic', 'heif'].includes(ext)) return 'image';
+      return '';
+    }
+
     async function loadFile(file) {
+      if (!file) return;
       if (state.imgUrl) {
         URL.revokeObjectURL(state.imgUrl);
         state.imgUrl = null;
       }
-      
-      if (file.type === 'application/pdf') {
+
+      const kind = getUploadFileKind(file);
+      if (kind === 'pdf') {
         await loadPDF(file);
-      } else if (file.type.startsWith('image/')) {
+      } else if (kind === 'image') {
         await loadImage(file);
       } else {
         showToast('対応していないファイル形式', 'error');
@@ -10595,7 +10636,7 @@ async function loadPDF(file) {
       showToast('オールリセットしました（縮尺もリセット）');
     }
 
-    fileInput.addEventListener('change', async (e) => {
+    async function handleFloorplanFileInputChange(e) {
       const f = e.target.files && e.target.files[0];
       if (!f) return;
       try {
@@ -10607,6 +10648,13 @@ async function loadPDF(file) {
         // allow re-selecting same file
         e.target.value = '';
       }
+    }
+
+    [fileInput, mobileFileInput].filter(Boolean).forEach(input => {
+      input.addEventListener('click', () => {
+        input.value = '';
+      });
+      input.addEventListener('change', handleFloorplanFileInputChange);
     });
 
     loadedFileDeleteBtn?.addEventListener('click', (e) => {
