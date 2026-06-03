@@ -10163,6 +10163,18 @@ function getWorldPoint(e) {
       return Math.max(0, Math.min(Math.max(0, max), Number(value) || 0));
     }
 
+    function consumeMobileCursorReturnDelta(axis, delta) {
+      if (!mobileCursorScreenOffset || !delta) return delta;
+      const current = Number(mobileCursorScreenOffset[axis]) || 0;
+      if (!current || Math.sign(current) !== Math.sign(delta)) return delta;
+      const consumed = Math.sign(delta) * Math.min(Math.abs(delta), Math.abs(current));
+      mobileCursorScreenOffset = clampMobileCursorScreenOffset({
+        ...mobileCursorScreenOffset,
+        [axis]: current - consumed
+      });
+      return delta - consumed;
+    }
+
     function updateMobileCanvasCursor() {
       if (!mobileCanvasCursor) return;
       ensureMobileCanvasCursor();
@@ -10191,19 +10203,21 @@ function getWorldPoint(e) {
     function applyMobileScrollDelta(dx, dy) {
       if (!state.img || !scrollContainer) return;
       ensureMobileCanvasCursor();
+      const scrollDx = consumeMobileCursorReturnDelta('x', dx);
+      const scrollDy = consumeMobileCursorReturnDelta('y', dy);
       const maxLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
       const maxTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
       const prevLeft = scrollContainer.scrollLeft;
       const prevTop = scrollContainer.scrollTop;
-      const nextLeft = clampMobileScroll(prevLeft - dx, maxLeft);
-      const nextTop = clampMobileScroll(prevTop - dy, maxTop);
+      const nextLeft = clampMobileScroll(prevLeft - scrollDx, maxLeft);
+      const nextTop = clampMobileScroll(prevTop - scrollDy, maxTop);
       scrollContainer.scrollLeft = nextLeft;
       scrollContainer.scrollTop = nextTop;
 
       const consumedX = prevLeft - nextLeft;
       const consumedY = prevTop - nextTop;
-      const residualX = dx - consumedX;
-      const residualY = dy - consumedY;
+      const residualX = scrollDx - consumedX;
+      const residualY = scrollDy - consumedY;
       if (residualX || residualY) {
         mobileCursorScreenOffset = clampMobileCursorScreenOffset({
           x: (mobileCursorScreenOffset?.x || 0) - residualX,
