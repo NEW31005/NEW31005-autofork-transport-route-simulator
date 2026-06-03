@@ -2539,7 +2539,8 @@
       }
 
       body.mobile-left-open .mobile-route-subnav,
-      body.mobile-right-open .mobile-route-subnav {
+      body.mobile-right-open .mobile-route-subnav,
+      body.mobile-modal-open .mobile-route-subnav {
         display: none !important;
       }
 
@@ -2565,7 +2566,8 @@
 
       .mobile-route-list-overlay[hidden],
       body.mobile-left-open .mobile-route-list-overlay,
-      body.mobile-right-open .mobile-route-list-overlay {
+      body.mobile-right-open .mobile-route-list-overlay,
+      body.mobile-modal-open .mobile-route-list-overlay {
         display: none !important;
       }
 
@@ -2668,7 +2670,8 @@
       }
 
       body.mobile-left-open .mobile-mode-tools,
-      body.mobile-right-open .mobile-mode-tools {
+      body.mobile-right-open .mobile-mode-tools,
+      body.mobile-modal-open .mobile-mode-tools {
         display: none !important;
       }
 
@@ -2760,6 +2763,10 @@
         opacity: 0.45;
         filter: grayscale(1);
         box-shadow: none;
+      }
+
+      .mobile-tool-select {
+        pointer-events: auto;
       }
 
       .mobile-tool-select {
@@ -3034,27 +3041,31 @@
 
       #reportModal .modal-footer.report-footer-actions {
         display: flex;
+        flex-wrap: nowrap;
         justify-content: flex-start;
         align-items: center;
         gap: 8px;
         padding: 10px;
+        overflow-x: auto;
       }
 
       #reportModal .report-footer-actions .pdf-orientation-select {
-        width: auto;
-        min-width: 92px;
+        order: 0;
+        width: 96px;
+        min-width: 96px;
         min-height: 44px;
-        flex: 0 0 auto;
+        flex: 0 0 96px;
       }
 
       #reportModal .report-footer-actions .btn {
+        flex: 0 0 auto;
         width: auto;
-        min-width: 0;
-        flex: 1 1 112px;
+        min-width: 108px;
       }
 
       .modal-overlay {
         padding: 10px;
+        z-index: 3000;
       }
 
       .modal {
@@ -4056,6 +4067,75 @@
         }
         .report-page.landscape .report-document-date {
           margin-top: 4px;
+        }
+
+        /* ===== Report layout balance fix ===== */
+        .report-page.portrait .report-metrics {
+          grid-template-columns: 210px minmax(0, 1fr);
+          gap: 8px 10px;
+        }
+        .report-page.portrait .metric-summary {
+          gap: 8px;
+          margin: 0 6px 0;
+        }
+        .report-page.portrait .metric-card {
+          min-height: 50px;
+          grid-template-columns: 34px minmax(0, 1fr);
+          padding: 6px 8px;
+          border-left-width: 4px;
+        }
+        .report-page.portrait .metric-icon {
+          width: 30px;
+          height: 30px;
+        }
+        .report-page.portrait .metric-icon svg {
+          width: 19px;
+          height: 19px;
+        }
+        .report-page.portrait .metric-label {
+          font-size: 9px;
+        }
+        .report-page.portrait .metric-card strong {
+          font-size: 16px;
+        }
+        .report-page.portrait .report-metrics table {
+          font-size: 10px;
+        }
+        .report-page.portrait .report-metrics th,
+        .report-page.portrait .report-metrics td {
+          padding: 4px 6px;
+        }
+        .report-page.portrait .report-image-wrap {
+          padding: 22px 10px 8px;
+        }
+        .report-page.landscape .report-page-body {
+          grid-template-columns: minmax(0, 1fr) 300px;
+          gap: 12px;
+        }
+        .report-page.landscape .report-page-header {
+          grid-template-columns: minmax(0, 1fr) 300px;
+        }
+        .report-page.landscape .metric-summary {
+          gap: 8px;
+        }
+        .report-page.landscape .metric-card {
+          min-height: 50px;
+          grid-template-columns: 34px minmax(0, 1fr);
+          padding: 7px 9px;
+        }
+        .report-page.landscape .metric-icon {
+          width: 30px;
+          height: 30px;
+        }
+        .report-page.landscape .metric-card strong {
+          font-size: 19px;
+        }
+        .report-page.landscape .report-metrics table {
+          font-size: 10px;
+        }
+        .report-page.landscape .report-metrics th,
+        .report-page.landscape .report-metrics td {
+          padding: 4px 6px;
         }
 
 /* Page breaks for print/PDF */
@@ -6621,6 +6701,14 @@ function openStampModal(){
       mobileOpenResultsBtn?.classList.remove('panel-active');
     }
 
+    function isMobileModalActive() {
+      return isMobileLayout() && !!document.querySelector('.modal-overlay.active');
+    }
+
+    function syncMobileModalState() {
+      document.body.classList.toggle('mobile-modal-open', isMobileModalActive());
+    }
+
     function openMobilePanel(kind) {
       closeMobileHelpPopup();
       const left = kind === 'left';
@@ -6713,7 +6801,9 @@ function openStampModal(){
       }
       const toolModes = ['home', 'station', 'route'];
       const mode = state.currentMode;
-      const show = isMobileLayout() && toolModes.includes(mode) && canUseMode(mode);
+      syncMobileModalState();
+      const modalOpen = isMobileModalActive();
+      const show = isMobileLayout() && !modalOpen && toolModes.includes(mode) && canUseMode(mode);
       mobileModeTools.hidden = !show;
       mobileModeTools.classList.toggle('active', !!show);
       mobileModeTools.classList.toggle('route-active', mode === 'route');
@@ -6767,7 +6857,7 @@ function openStampModal(){
       return true;
     }
 
-    function handleMobileToolAction(action) {
+    async function handleMobileToolAction(action) {
       const map = {
         'home-add': 'addHomeBtn',
         'home-rotate-left': 'homeRotateLeftBtn',
@@ -6779,9 +6869,6 @@ function openStampModal(){
         'station-down': 'stationMoveDownBtn',
         'station-right': 'stationMoveRightBtn',
         'route-add': 'addRouteBtn',
-        'route-play': 'routeDemoToggleBtn',
-        'route-stop': 'routeDemoStopBtn',
-        'route-save': 'routeDemoSaveBtn',
         'route-pole': 'routeDemoReflectivePoleBtn'
       };
       if (action === 'home-delete') {
@@ -6804,10 +6891,27 @@ function openStampModal(){
         updateMobileModeTools();
         return;
       }
+      if (action === 'route-play') {
+        runRouteDemoAction('toggle', null);
+        updateMobileModeTools();
+        return;
+      }
+      if (action === 'route-stop') {
+        stopRouteDemo();
+        updateMobileModeTools();
+        return;
+      }
+      if (action === 'route-save') {
+        await saveCurrentRouteDemoVideo();
+        updateMobileModeTools();
+        return;
+      }
       clickExistingControl(map[action]);
     }
 
     function syncMobileModeUI() {
+      syncMobileModalState();
+      const modalOpen = isMobileModalActive();
       mobileModeButtons.forEach(btn => {
         const mode = btn.dataset.mobileMode;
         const disabled = !canUseMode(mode) && !(mode === 'scale' && !state.img);
@@ -6818,7 +6922,7 @@ function openStampModal(){
       });
 
       if (mobileRouteSubnav) {
-        mobileRouteSubnav.hidden = state.currentMode !== 'route';
+        mobileRouteSubnav.hidden = modalOpen || state.currentMode !== 'route';
       }
 
       mobileSubModeButtons.forEach(btn => {
@@ -9262,9 +9366,11 @@ function draw() {
 
     function updateMobileRouteListOverlay() {
       if (!mobileRouteListOverlay) return;
+      syncMobileModalState();
       const show = isMobileLayout()
         && state.currentMode === 'route'
         && state.routes.length > 0
+        && !isMobileModalActive()
         && !document.body.classList.contains('mobile-left-open')
         && !document.body.classList.contains('mobile-right-open');
 
@@ -13920,7 +14026,11 @@ measureBtn?.addEventListener('click', () => {
     }
 
     document.getElementById('reportBtn').addEventListener('click', async () => {
+      closeMobilePanels();
+      closeMobileHelpPopup();
       document.getElementById('reportModal').classList.add('active');
+      syncMobileModeUI();
+      updateMobileModeTools();
       try {
         await generateReport();
       } catch (e) {
@@ -13940,6 +14050,8 @@ measureBtn?.addEventListener('click', () => {
 
     document.getElementById('reportModalClose').addEventListener('click', () => {
       document.getElementById('reportModal').classList.remove('active');
+      syncMobileModeUI();
+      updateMobileModeTools();
     });
     window.addEventListener('resize', fitReportPreviewToModal);
 
@@ -15472,6 +15584,73 @@ measureBtn?.addEventListener('click', () => {
         .report-page.landscape .report-document-date {
           margin-top: 4px;
         }
+        .report-page.portrait .report-metrics {
+          grid-template-columns: 210px minmax(0, 1fr);
+          gap: 8px 10px;
+        }
+        .report-page.portrait .metric-summary {
+          gap: 8px;
+          margin: 0 6px 0;
+        }
+        .report-page.portrait .metric-card {
+          min-height: 50px;
+          grid-template-columns: 34px minmax(0, 1fr);
+          padding: 6px 8px;
+          border-left-width: 4px;
+        }
+        .report-page.portrait .metric-icon {
+          width: 30px;
+          height: 30px;
+        }
+        .report-page.portrait .metric-icon svg {
+          width: 19px;
+          height: 19px;
+        }
+        .report-page.portrait .metric-label {
+          font-size: 9px;
+        }
+        .report-page.portrait .metric-card strong {
+          font-size: 16px;
+        }
+        .report-page.portrait .report-metrics table {
+          font-size: 10px;
+        }
+        .report-page.portrait .report-metrics th,
+        .report-page.portrait .report-metrics td {
+          padding: 4px 6px;
+        }
+        .report-page.portrait .report-image-wrap {
+          padding: 22px 10px 8px;
+        }
+        .report-page.landscape .report-page-body {
+          grid-template-columns: minmax(0, 1fr) 300px;
+          gap: 12px;
+        }
+        .report-page.landscape .report-page-header {
+          grid-template-columns: minmax(0, 1fr) 300px;
+        }
+        .report-page.landscape .metric-summary {
+          gap: 8px;
+        }
+        .report-page.landscape .metric-card {
+          min-height: 50px;
+          grid-template-columns: 34px minmax(0, 1fr);
+          padding: 7px 9px;
+        }
+        .report-page.landscape .metric-icon {
+          width: 30px;
+          height: 30px;
+        }
+        .report-page.landscape .metric-card strong {
+          font-size: 19px;
+        }
+        .report-page.landscape .report-metrics table {
+          font-size: 10px;
+        }
+        .report-page.landscape .report-metrics th,
+        .report-page.landscape .report-metrics td {
+          padding: 4px 6px;
+        }
         @media print {
           body { padding: 0; background: #fff; }
           .report-page { border: none; border-radius: 0; margin: 0; }
@@ -15922,9 +16101,19 @@ measureBtn?.addEventListener('click', () => {
             mobileRouteDemoSpeedSelect.appendChild(option);
           });
         }
-        mobileRouteDemoSpeedSelect.addEventListener('change', (e) => {
-          setRouteDemoSpeed(e.target.value);
-        });
+        const keepMobileSpeedSelectOnTop = (e) => {
+          e.stopPropagation();
+        };
+        const applyMobileSpeed = (e) => {
+          e.stopPropagation();
+          setRouteDemoSpeed(e.currentTarget.value);
+          updateMobileModeTools();
+        };
+        mobileRouteDemoSpeedSelect.addEventListener('pointerdown', keepMobileSpeedSelectOnTop);
+        mobileRouteDemoSpeedSelect.addEventListener('touchstart', keepMobileSpeedSelectOnTop, { passive: true });
+        mobileRouteDemoSpeedSelect.addEventListener('click', keepMobileSpeedSelectOnTop);
+        mobileRouteDemoSpeedSelect.addEventListener('input', applyMobileSpeed);
+        mobileRouteDemoSpeedSelect.addEventListener('change', applyMobileSpeed);
       }
       updateRouteDemoSpeedUI();
     }
