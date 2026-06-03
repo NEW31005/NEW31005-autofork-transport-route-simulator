@@ -5555,9 +5555,7 @@ body.stamp-modal-open header{ pointer-events: none; }
     }
 
     function getRetryAssetSrc(file, retryCount) {
-      if (window.location.protocol === 'file:') return file;
-      const separator = file.includes('?') ? '&' : '?';
-      return `${file}${separator}retry=${retryCount}&t=${Date.now()}`;
+      return file;
     }
 
     function loadCanvasAssetImage(img, file, label) {
@@ -5571,6 +5569,7 @@ body.stamp-modal-open header{ pointer-events: none; }
         if (retryCount < maxRetries) {
           retryCount += 1;
           setTimeout(() => {
+            img.removeAttribute('src');
             img.src = getRetryAssetSrc(file, retryCount);
           }, 220 * retryCount);
         } else {
