@@ -2529,6 +2529,97 @@
         display: none !important;
       }
 
+      .mobile-mode-tools {
+        position: absolute;
+        left: 12px;
+        right: 74px;
+        bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+        z-index: 55;
+        display: none;
+        align-items: flex-end;
+        justify-content: flex-start;
+        pointer-events: none;
+      }
+
+      .mobile-mode-tools.active {
+        display: flex;
+        animation: mobileToolFadeUp 0.2s ease-out;
+      }
+
+      .mobile-mode-tools.route-active {
+        bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+      }
+
+      body.mobile-left-open .mobile-mode-tools,
+      body.mobile-right-open .mobile-mode-tools {
+        display: none !important;
+      }
+
+      .mobile-mode-tool-row {
+        display: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        pointer-events: auto;
+      }
+
+      .mobile-mode-tool-row.active {
+        display: flex;
+      }
+
+      .mobile-tool-btn {
+        min-height: 40px;
+        padding: 8px 12px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #1f2937;
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+        backdrop-filter: blur(10px);
+      }
+
+      .mobile-tool-btn.primary {
+        background: linear-gradient(135deg, var(--hakuou-blue), var(--hakuou-blue-light));
+        border-color: transparent;
+        color: #ffffff;
+      }
+
+      .mobile-tool-btn.active {
+        background: var(--hakuou-blue-pale);
+        border-color: rgba(0, 82, 154, 0.45);
+        color: var(--hakuou-blue);
+      }
+
+      .mobile-tool-btn.station-load {
+        border-color: rgba(40, 167, 69, 0.35);
+        color: #15803d;
+      }
+
+      .mobile-tool-btn.station-unload {
+        border-color: rgba(220, 53, 69, 0.32);
+        color: #b42318;
+      }
+
+      .mobile-tool-btn.icon {
+        width: 40px;
+        padding: 0;
+        font-size: 17px;
+      }
+
+      .mobile-tool-btn:disabled {
+        opacity: 0.45;
+        filter: grayscale(1);
+        box-shadow: none;
+      }
+
+      @keyframes mobileToolFadeUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
       .mobile-help-popover {
         position: fixed;
         inset: 0;
@@ -4461,6 +4552,33 @@ body.stamp-modal-open header{ pointer-events: none; }
         <button class="canvas-ctrl-btn" id="globalRedoBtn" title="やり直し">↪</button>
         <button class="canvas-ctrl-btn mobile-help-btn" id="mobileHelpBtn" title="使い方" aria-pressed="false">?</button>
       </div>
+      <div class="mobile-mode-tools" id="mobileModeTools" aria-label="モバイルモード別操作" hidden>
+        <div class="mobile-mode-tool-row" data-mobile-tools-mode="home">
+          <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="home-add">+ 初期位置</button>
+          <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="home-rotate-left" title="左へ45度">↺</button>
+          <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="home-rotate-right" title="右へ45度">↻</button>
+        </div>
+        <div class="mobile-mode-tool-row" data-mobile-tools-mode="station">
+          <button class="mobile-tool-btn station-load" type="button" data-mobile-tool-action="station-loading">P 荷積み</button>
+          <button class="mobile-tool-btn station-unload" type="button" data-mobile-tool-action="station-unloading">D 荷下ろし</button>
+          <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-up" title="上へ50mm">↑</button>
+          <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-left" title="左へ50mm">←</button>
+          <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-down" title="下へ50mm">↓</button>
+          <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-right" title="右へ50mm">→</button>
+        </div>
+        <div class="mobile-mode-tool-row" data-mobile-tools-mode="route">
+          <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="route-add">+ ルート</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-play">▶ 再生</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-stop">■ 停止</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-save">動画</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-pole">反射ポール</button>
+        </div>
+        <div class="mobile-mode-tool-row" data-mobile-tools-mode="stamp">
+          <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="stamp-picker">種類</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="stamp-delete">削除</button>
+          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="stamp-clear">選択解除</button>
+        </div>
+      </div>
     </div>
 
     <!-- Right Panel -->
@@ -5188,6 +5306,9 @@ function getStampDef(stampOrType) {
     const mobileModeButtons = document.querySelectorAll('[data-mobile-mode]');
     const mobileSubModeButtons = document.querySelectorAll('[data-mobile-submode]');
     const mobileRouteSubnav = document.getElementById('mobileRouteSubnav');
+    const mobileModeTools = document.getElementById('mobileModeTools');
+    const mobileModeToolRows = document.querySelectorAll('[data-mobile-tools-mode]');
+    const mobileToolButtons = document.querySelectorAll('[data-mobile-tool-action]');
     const mobileHelpBtn = document.getElementById('mobileHelpBtn');
     const mobileHelpPopover = document.getElementById('mobileHelpPopover');
     const mobileHelpPopoverBtn = document.getElementById('mobileHelpPopoverBtn');
@@ -6159,6 +6280,99 @@ function openStampModal(){
       else openMobileHelpPopup();
     }
 
+    function setMobileToolButtonState(action, disabled, text) {
+      const btn = document.querySelector(`[data-mobile-tool-action="${action}"]`);
+      if (!btn) return;
+      btn.disabled = !!disabled;
+      btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      if (text) btn.textContent = text;
+    }
+
+    function mirrorMobileToolButton(action, sourceId, fallbackText) {
+      const source = document.getElementById(sourceId);
+      setMobileToolButtonState(action, !source || !!source.disabled, source?.textContent?.trim() || fallbackText);
+    }
+
+    function updateMobileModeTools() {
+      if (!mobileModeTools) return;
+      const toolModes = ['home', 'station', 'route', 'stamp'];
+      const mode = state.currentMode;
+      const show = isMobileLayout() && toolModes.includes(mode) && canUseMode(mode);
+      mobileModeTools.hidden = !show;
+      mobileModeTools.classList.toggle('active', !!show);
+      mobileModeTools.classList.toggle('route-active', mode === 'route');
+
+      mobileModeToolRows.forEach(row => {
+        row.classList.toggle('active', show && row.dataset.mobileToolsMode === mode);
+      });
+
+      if (!show) return;
+
+      const hasScale = !!state.metersPerPixel;
+      mirrorMobileToolButton('home-add', 'addHomeBtn', '+ 初期位置');
+      mirrorMobileToolButton('home-rotate-left', 'homeRotateLeftBtn', '↺');
+      mirrorMobileToolButton('home-rotate-right', 'homeRotateRightBtn', '↻');
+
+      setMobileToolButtonState('station-loading', !hasScale, 'P 荷積み');
+      setMobileToolButtonState('station-unloading', !hasScale, 'D 荷下ろし');
+      document.querySelector('[data-mobile-tool-action="station-loading"]')?.classList.toggle('active', state.stationPlaceType === 'loading');
+      document.querySelector('[data-mobile-tool-action="station-unloading"]')?.classList.toggle('active', state.stationPlaceType === 'unloading');
+      mirrorMobileToolButton('station-up', 'stationMoveUpBtn', '↑');
+      mirrorMobileToolButton('station-left', 'stationMoveLeftBtn', '←');
+      mirrorMobileToolButton('station-down', 'stationMoveDownBtn', '↓');
+      mirrorMobileToolButton('station-right', 'stationMoveRightBtn', '→');
+
+      mirrorMobileToolButton('route-add', 'addRouteBtn', '+ ルート');
+      mirrorMobileToolButton('route-play', 'routeDemoToggleBtn', '▶ 再生');
+      mirrorMobileToolButton('route-stop', 'routeDemoStopBtn', '■ 停止');
+      mirrorMobileToolButton('route-save', 'routeDemoSaveBtn', '動画');
+      mirrorMobileToolButton('route-pole', 'routeDemoReflectivePoleBtn', '反射ポール');
+
+      setMobileToolButtonState('stamp-picker', !hasScale, '種類');
+      mirrorMobileToolButton('stamp-delete', 'deleteStampBtn', '削除');
+      mirrorMobileToolButton('stamp-clear', 'clearStampSelectionBtn', '選択解除');
+    }
+
+    function clickExistingControl(id) {
+      const btn = document.getElementById(id);
+      if (!btn || btn.disabled) return false;
+      btn.click();
+      requestAnimationFrame(updateMobileModeTools);
+      return true;
+    }
+
+    function handleMobileToolAction(action) {
+      const map = {
+        'home-add': 'addHomeBtn',
+        'home-rotate-left': 'homeRotateLeftBtn',
+        'home-rotate-right': 'homeRotateRightBtn',
+        'station-loading': 'placeLoadingBtn',
+        'station-unloading': 'placeUnloadingBtn',
+        'station-up': 'stationMoveUpBtn',
+        'station-left': 'stationMoveLeftBtn',
+        'station-down': 'stationMoveDownBtn',
+        'station-right': 'stationMoveRightBtn',
+        'route-add': 'addRouteBtn',
+        'route-play': 'routeDemoToggleBtn',
+        'route-stop': 'routeDemoStopBtn',
+        'route-save': 'routeDemoSaveBtn',
+        'route-pole': 'routeDemoReflectivePoleBtn',
+        'stamp-delete': 'deleteStampBtn',
+        'stamp-clear': 'clearStampSelectionBtn'
+      };
+      if (action === 'stamp-picker') {
+        if (!state.metersPerPixel) {
+          showToast('先に縮尺を設定してください', 'warning');
+          return;
+        }
+        setMode('stamp');
+        openStampModal();
+        updateMobileModeTools();
+        return;
+      }
+      clickExistingControl(map[action]);
+    }
+
     function syncMobileModeUI() {
       mobileModeButtons.forEach(btn => {
         const mode = btn.dataset.mobileMode;
@@ -6181,6 +6395,8 @@ function openStampModal(){
         btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
         btn.title = disabled ? getModeDisabledReason('route') : '';
       });
+
+      updateMobileModeTools();
     }
 
     function syncModePanelVisibility() {
@@ -8550,6 +8766,7 @@ function draw() {
       buttons.forEach(btn => {
         btn.disabled = !station || !state.metersPerPixel;
       });
+      updateMobileModeTools();
     }
 
     function selectStation(index, options = {}) {
@@ -8927,6 +9144,9 @@ function draw() {
     mobileHelpPopover?.addEventListener('click', (e) => {
       if (e.target?.id === 'mobileHelpPopover') closeMobileHelpPopup();
     });
+    mobileToolButtons.forEach(btn => {
+      btn.addEventListener('click', () => handleMobileToolAction(btn.dataset.mobileToolAction));
+    });
     mobileModeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = btn.dataset.mobileMode;
@@ -8975,6 +9195,7 @@ function draw() {
       const hasSel = getSelectedStamp() !== null;
       if (deleteStampBtn) deleteStampBtn.disabled = !hasSel;
       if (clearStampSelectionBtn) clearStampSelectionBtn.disabled = !hasSel;
+      updateMobileModeTools();
     }
     if (deleteStampBtn) {
       deleteStampBtn.addEventListener('click', (e) => {
@@ -9009,6 +9230,7 @@ function draw() {
         placeUnloadingBtn.classList.toggle('active', on);
         placeUnloadingBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
       }
+      updateMobileModeTools();
     }
 
     if (placeLoadingBtn) {
@@ -11151,6 +11373,7 @@ function handleStampClick(wp) {
       if (homeRotationValue) {
         homeRotationValue.textContent = activeHome ? `${normalizeHomeRotDeg(activeHome.rotDeg)}°` : '-';
       }
+      updateMobileModeTools();
     }
 
     function rotateActiveHome(deltaDeg) {
@@ -14489,6 +14712,7 @@ measureBtn?.addEventListener('click', () => {
         reflectivePoleDeleteBtn.disabled = !selectedReflectivePole || demo.recording;
       }
       updateRouteDemoDetectionRangeUI();
+      updateMobileModeTools();
     }
 
     function activateReflectivePoleStampPlacement() {
