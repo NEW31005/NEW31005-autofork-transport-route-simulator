@@ -2089,6 +2089,7 @@
     .mobile-bottom-nav,
     .mobile-route-subnav,
     .mobile-canvas-upload,
+    .mobile-results-actions,
     .mobile-help-btn,
     .mobile-help-popover {
       display: none;
@@ -2466,7 +2467,7 @@
         bottom: calc(8px + env(safe-area-inset-bottom, 0px));
         z-index: 1225;
         display: grid;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
+        grid-template-columns: repeat(8, minmax(0, 1fr));
         gap: 5px;
         overflow: hidden;
         padding: 8px;
@@ -2645,10 +2646,56 @@
         accent-color: var(--hakuou-blue);
       }
 
-      .mobile-tool-check.disabled {
+      .mobile-tool-check.disabled,
+      .mobile-tool-select.disabled {
         opacity: 0.45;
         filter: grayscale(1);
         box-shadow: none;
+      }
+
+      .mobile-tool-select {
+        min-height: 40px;
+        padding: 7px 10px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+        backdrop-filter: blur(10px);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .mobile-tool-select span {
+        color: #1f2937;
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .mobile-tool-select select {
+        min-height: 28px;
+        border: 1px solid rgba(148, 163, 184, 0.65);
+        border-radius: 10px;
+        background: #ffffff;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 900;
+        padding: 3px 24px 3px 8px;
+      }
+
+      .mobile-results-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+        padding-bottom: 4px;
+      }
+
+      .mobile-results-actions .btn {
+        min-height: 44px;
+        justify-content: center;
       }
 
       .mobile-mode-tool-row[data-mobile-tools-mode="station"].active {
@@ -4714,17 +4761,16 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-play">▶ 再生</button>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-stop">■ 停止</button>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-save">動画</button>
+          <label class="mobile-tool-select" for="mobileRouteDemoSpeedSelect">
+            <span>速度</span>
+            <select id="mobileRouteDemoSpeedSelect" aria-label="走行デモ速度"></select>
+          </label>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-pole">反射ポール</button>
           <button class="mobile-tool-btn route-pole-delete" type="button" data-mobile-tool-action="route-pole-delete" hidden>削除</button>
           <label class="mobile-tool-check" for="mobileRouteDetectionRangeCheckbox">
             <input type="checkbox" id="mobileRouteDetectionRangeCheckbox">
             <span>検出範囲</span>
           </label>
-        </div>
-        <div class="mobile-mode-tool-row" data-mobile-tools-mode="stamp">
-          <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="stamp-picker">種類</button>
-          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="stamp-delete">削除</button>
-          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="stamp-clear">選択解除</button>
         </div>
       </div>
     </div>
@@ -4857,6 +4903,10 @@ body.stamp-modal-open header{ pointer-events: none; }
         <div class="disclaimer">
           ※本シミュレーション結果は、数値に基づく試算値です。実際の搬送時間を保証するものではありません。
         </div>
+        <div class="mobile-results-actions" aria-label="モバイル出力操作">
+          <button class="btn btn-primary" id="mobileCanvasPngExportBtn" type="button">出力</button>
+          <button class="btn btn-primary" id="mobileReportBtn" type="button">レポート</button>
+        </div>
       </div>
     </div>
   </div>
@@ -4874,7 +4924,8 @@ body.stamp-modal-open header{ pointer-events: none; }
     <button type="button" data-mobile-mode="home"><strong>🏠</strong><span>初期</span></button>
     <button type="button" data-mobile-mode="station"><strong>📍</strong><span>ST</span></button>
     <button type="button" data-mobile-mode="route"><strong>🛤</strong><span>ルート</span></button>
-    <button type="button" data-mobile-mode="stamp"><strong>🏷</strong><span>スタンプ</span></button>
+    <button type="button" id="mobileExportProject"><strong>💾</strong><span>保存</span></button>
+    <button type="button" id="mobileImportProject"><strong>📂</strong><span>読込</span></button>
     <button type="button" id="mobileOpenResults"><strong>📊</strong><span>結果</span></button>
   </nav>
 
@@ -5490,12 +5541,17 @@ function getStampDef(stampOrType) {
     const mobilePanelOverlay = document.getElementById('mobilePanelOverlay');
     const mobileOpenControlsBtn = document.getElementById('mobileOpenControls');
     const mobileOpenResultsBtn = document.getElementById('mobileOpenResults');
+    const mobileExportProjectBtn = document.getElementById('mobileExportProject');
+    const mobileImportProjectBtn = document.getElementById('mobileImportProject');
+    const mobileCanvasPngExportBtn = document.getElementById('mobileCanvasPngExportBtn');
+    const mobileReportBtn = document.getElementById('mobileReportBtn');
     const mobileModeButtons = document.querySelectorAll('[data-mobile-mode]');
     const mobileSubModeButtons = document.querySelectorAll('[data-mobile-submode]');
     const mobileRouteSubnav = document.getElementById('mobileRouteSubnav');
     const mobileModeTools = document.getElementById('mobileModeTools');
     const mobileModeToolRows = document.querySelectorAll('[data-mobile-tools-mode]');
     const mobileToolButtons = document.querySelectorAll('[data-mobile-tool-action]');
+    const mobileRouteDemoSpeedSelect = document.getElementById('mobileRouteDemoSpeedSelect');
     const mobileRouteDetectionRangeCheckbox = document.getElementById('mobileRouteDetectionRangeCheckbox');
     const mobileHelpBtn = document.getElementById('mobileHelpBtn');
     const mobileHelpPopover = document.getElementById('mobileHelpPopover');
@@ -6490,7 +6546,7 @@ function openStampModal(){
 
     function updateMobileModeTools() {
       if (!mobileModeTools) return;
-      const toolModes = ['home', 'station', 'route', 'stamp'];
+      const toolModes = ['home', 'station', 'route'];
       const mode = state.currentMode;
       const show = isMobileLayout() && toolModes.includes(mode) && canUseMode(mode);
       mobileModeTools.hidden = !show;
@@ -6535,9 +6591,6 @@ function openStampModal(){
       setMobileToolButtonVisibility('route-pole-delete', state.routeDemoReflectivePolePlacementActive === true || !!selectedReflectivePole);
       setMobileToolButtonState('route-pole-delete', !selectedReflectivePole || routeDemo.recording, '削除');
 
-      setMobileToolButtonState('stamp-picker', !hasScale, '種類');
-      mirrorMobileToolButton('stamp-delete', 'deleteStampBtn', '削除');
-      mirrorMobileToolButton('stamp-clear', 'clearStampSelectionBtn', '選択解除');
     }
 
     function clickExistingControl(id) {
@@ -6563,20 +6616,8 @@ function openStampModal(){
         'route-play': 'routeDemoToggleBtn',
         'route-stop': 'routeDemoStopBtn',
         'route-save': 'routeDemoSaveBtn',
-        'route-pole': 'routeDemoReflectivePoleBtn',
-        'stamp-delete': 'deleteStampBtn',
-        'stamp-clear': 'clearStampSelectionBtn'
+        'route-pole': 'routeDemoReflectivePoleBtn'
       };
-      if (action === 'stamp-picker') {
-        if (!state.metersPerPixel) {
-          showToast('先に縮尺を設定してください', 'warning');
-          return;
-        }
-        setMode('stamp');
-        openStampModal();
-        updateMobileModeTools();
-        return;
-      }
       if (action === 'home-delete') {
         deleteHomeById(state.activeHomeId);
         updateMobileModeTools();
@@ -9436,6 +9477,26 @@ function draw() {
     mobileOpenResultsBtn?.addEventListener('click', () => {
       if (document.body.classList.contains('mobile-right-open')) closeMobilePanels();
       else openMobilePanel('right');
+    });
+    mobileExportProjectBtn?.addEventListener('click', () => {
+      closeMobilePanels();
+      closeMobileHelpPopup();
+      clickExistingControl('exportBtn');
+    });
+    mobileImportProjectBtn?.addEventListener('click', () => {
+      closeMobilePanels();
+      closeMobileHelpPopup();
+      clickExistingControl('importBtn');
+    });
+    mobileCanvasPngExportBtn?.addEventListener('click', () => {
+      closeMobilePanels();
+      closeMobileHelpPopup();
+      clickExistingControl('canvasPngExportBtn');
+    });
+    mobileReportBtn?.addEventListener('click', () => {
+      closeMobilePanels();
+      closeMobileHelpPopup();
+      clickExistingControl('reportBtn');
     });
     mobilePanelOverlay?.addEventListener('click', closeMobilePanels);
     mobileCanvasUploadBtn?.addEventListener('click', () => {
@@ -15549,28 +15610,55 @@ measureBtn?.addEventListener('click', () => {
       const emptyKmh = SPEC.speedEmpty * factor;
       const loadedKmh = SPEC.speedLoaded * factor;
       const title = `空荷 ${emptyKmh.toFixed(1)} km/h / 積載 ${loadedKmh.toFixed(1)} km/h`;
+      const disabled = !!ensureRouteDemoState().recording;
       if (range && document.activeElement !== range) {
         range.min = String(ROUTE_DEMO_MIN_SPEED_FACTOR);
         range.max = String(ROUTE_DEMO_MAX_SPEED_FACTOR);
         range.step = '0.05';
         range.value = factor.toFixed(2);
         range.title = title;
-        range.disabled = !!ensureRouteDemoState().recording;
+        range.disabled = disabled;
       }
       if (value) {
         value.textContent = `${factor.toFixed(2)}x`;
         value.title = title;
+      }
+      if (mobileRouteDemoSpeedSelect) {
+        mobileRouteDemoSpeedSelect.value = factor.toFixed(2);
+        mobileRouteDemoSpeedSelect.title = title;
+        mobileRouteDemoSpeedSelect.disabled = disabled;
+        mobileRouteDemoSpeedSelect.closest('.mobile-tool-select')?.classList.toggle('disabled', disabled);
       }
       updateRouteDemoDetectionRangeUI();
     }
 
     function setupRouteDemoSpeedControls() {
       const range = document.getElementById('routeDemoSpeedRange');
-      if (!range || range.dataset.bound === '1') return;
-      range.dataset.bound = '1';
-      range.addEventListener('input', (e) => {
-        setRouteDemoSpeed(e.target.value);
-      });
+      if (range && range.dataset.bound !== '1') {
+        range.dataset.bound = '1';
+        range.addEventListener('input', (e) => {
+          setRouteDemoSpeed(e.target.value);
+        });
+      }
+      if (mobileRouteDemoSpeedSelect && mobileRouteDemoSpeedSelect.dataset.bound !== '1') {
+        mobileRouteDemoSpeedSelect.dataset.bound = '1';
+        if (!mobileRouteDemoSpeedSelect.options.length) {
+          [
+            { value: 1, label: '等速' },
+            { value: 2, label: '2倍' },
+            { value: 4, label: '4倍' },
+            { value: 5, label: '5倍' }
+          ].forEach(({ value, label }) => {
+            const option = document.createElement('option');
+            option.value = value.toFixed(2);
+            option.textContent = label;
+            mobileRouteDemoSpeedSelect.appendChild(option);
+          });
+        }
+        mobileRouteDemoSpeedSelect.addEventListener('change', (e) => {
+          setRouteDemoSpeed(e.target.value);
+        });
+      }
       updateRouteDemoSpeedUI();
     }
 
