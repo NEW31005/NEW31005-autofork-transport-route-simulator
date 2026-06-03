@@ -6589,10 +6589,12 @@ function openStampModal(){
 
     function resetMobileCanvasCursorToViewCenter() {
       if (!isMobileLayout() || !state.img) return;
+      mobileCursorScreenOffset = { x: 0, y: 0 };
       mobileCursorWorld = getMobileVisibleCenterWorld() || clampWorldPointToImage({
         x: (state.imgWidth || 0) / 2,
         y: (state.imgHeight || 0) / 2
       });
+      syncMobileCursorWorldFromScreen();
       updateMobileCanvasCursor();
     }
 
@@ -6606,8 +6608,8 @@ function openStampModal(){
         const offset = getImageOffset();
         const imageW = (state.imgWidth || 0) * state.zoom;
         const imageH = (state.imgHeight || 0) * state.zoom;
-        const visibleCenterX = Math.max(80, (containerW - 78) / 2);
-        const visibleCenterY = Math.max(80, (containerH - 28) / 2);
+        const visibleCenterX = containerW / 2;
+        const visibleCenterY = containerH / 2;
         scrollX = Math.max(0, offset.x + imageW / 2 - visibleCenterX);
         scrollY = Math.max(0, offset.y + imageH / 2 - visibleCenterY);
       }
@@ -10070,6 +10072,7 @@ function getWorldPoint(e) {
     let mobilePinchGesture = null;
     let mobileCursorGesture = null;
     let mobileCursorWorld = null;
+    let mobileCursorScreenOffset = null;
     let mobileGestureCooldownUntil = 0;
 
     function isRouteDemoRecording() {
@@ -10091,6 +10094,7 @@ function getWorldPoint(e) {
 
     function hideMobileCanvasCursor() {
       mobileCursorWorld = null;
+      mobileCursorScreenOffset = null;
       if (!mobileCanvasCursor) return;
       mobileCanvasCursor.hidden = true;
       mobileCanvasCursor.classList.remove('active');
@@ -10110,11 +10114,9 @@ function getWorldPoint(e) {
     }
 
     function ensureMobileCanvasCursor() {
-      if (!isMobileLayout() || !state.img || mobileCursorWorld) return;
-      mobileCursorWorld = getMobileVisibleCenterWorld() || clampWorldPointToImage({
-        x: (state.imgWidth || 0) / 2,
-        y: (state.imgHeight || 0) / 2
-      });
+      if (!isMobileLayout() || !state.img) return;
+      if (!mobileCursorScreenOffset) mobileCursorScreenOffset = { x: 0, y: 0 };
+      syncMobileCursorWorldFromScreen();
     }
 
     function getMobileCursorAnchorInScroller() {
@@ -10125,29 +10127,40 @@ function getWorldPoint(e) {
       };
     }
 
-    function getMobileCursorContentPoint() {
-      if (!mobileCursorWorld || !state.img) return null;
+    function getMobileCursorScreenPointInScroller() {
+      const anchor = getMobileCursorAnchorInScroller();
+      const offset = mobileCursorScreenOffset || { x: 0, y: 0 };
+      return {
+        x: anchor.x + offset.x,
+        y: anchor.y + offset.y
+      };
+    }
+
+    function clampMobileCursorScreenOffset(offset) {
+      if (!scrollContainer) return { x: 0, y: 0 };
+      const anchor = getMobileCursorAnchorInScroller();
+      const margin = 22;
+      return {
+        x: Math.max(-anchor.x + margin, Math.min(scrollContainer.clientWidth - anchor.x - margin, Number(offset?.x) || 0)),
+        y: Math.max(-anchor.y + margin, Math.min(scrollContainer.clientHeight - anchor.y - margin, Number(offset?.y) || 0))
+      };
+    }
+
+    function syncMobileCursorWorldFromScreen() {
+      if (!isMobileLayout() || !state.img || !scrollContainer) return;
+      if (!mobileCursorScreenOffset) mobileCursorScreenOffset = { x: 0, y: 0 };
+      mobileCursorScreenOffset = clampMobileCursorScreenOffset(mobileCursorScreenOffset);
+      const point = getMobileCursorScreenPointInScroller();
       const offset = getImageOffset();
       const z = state.zoom || 1;
-      return {
-        x: offset.x + mobileCursorWorld.x * z,
-        y: offset.y + mobileCursorWorld.y * z
-      };
+      mobileCursorWorld = clampWorldPointToImage({
+        x: (scrollContainer.scrollLeft + point.x - offset.x) / z,
+        y: (scrollContainer.scrollTop + point.y - offset.y) / z
+      });
     }
 
     function clampMobileScroll(value, max) {
       return Math.max(0, Math.min(Math.max(0, max), Number(value) || 0));
-    }
-
-    function keepMobileCursorNearAnchor() {
-      if (!isMobileLayout() || !state.img || !scrollContainer || !mobileCursorWorld) return;
-      const contentPoint = getMobileCursorContentPoint();
-      if (!contentPoint) return;
-      const anchor = getMobileCursorAnchorInScroller();
-      const maxLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-      const maxTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-      scrollContainer.scrollLeft = clampMobileScroll(contentPoint.x - anchor.x, maxLeft);
-      scrollContainer.scrollTop = clampMobileScroll(contentPoint.y - anchor.y, maxTop);
     }
 
     function updateMobileCanvasCursor() {
@@ -10160,30 +10173,45 @@ function getWorldPoint(e) {
       }
       const areaRect = canvasArea.getBoundingClientRect();
       const scrollerRect = scrollContainer.getBoundingClientRect();
-      const contentPoint = getMobileCursorContentPoint();
-      if (!contentPoint) return;
-      const left = scrollerRect.left - areaRect.left + contentPoint.x - scrollContainer.scrollLeft;
-      const top = scrollerRect.top - areaRect.top + contentPoint.y - scrollContainer.scrollTop;
+      const point = getMobileCursorScreenPointInScroller();
+      const left = scrollerRect.left - areaRect.left + point.x;
+      const top = scrollerRect.top - areaRect.top + point.y;
       mobileCanvasCursor.style.left = `${left}px`;
       mobileCanvasCursor.style.top = `${top}px`;
       mobileCanvasCursor.hidden = false;
       mobileCanvasCursor.classList.add('active');
     }
 
-    function setMobileCanvasCursor(wp, options = {}) {
+    function setMobileCanvasCursor(wp) {
       if (!wp || !state.img) return;
       mobileCursorWorld = clampWorldPointToImage(wp);
-      if (options.keepAnchored) keepMobileCursorNearAnchor();
       updateMobileCanvasCursor();
     }
 
-    function applyMobileCursorDelta(dx, dy) {
-      if (!state.img || !mobileCursorWorld) return;
-      const z = state.zoom || 1;
-      setMobileCanvasCursor({
-        x: mobileCursorWorld.x + dx / z,
-        y: mobileCursorWorld.y + dy / z
-      }, { keepAnchored: true });
+    function applyMobileScrollDelta(dx, dy) {
+      if (!state.img || !scrollContainer) return;
+      ensureMobileCanvasCursor();
+      const maxLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+      const maxTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+      const prevLeft = scrollContainer.scrollLeft;
+      const prevTop = scrollContainer.scrollTop;
+      const nextLeft = clampMobileScroll(prevLeft - dx, maxLeft);
+      const nextTop = clampMobileScroll(prevTop - dy, maxTop);
+      scrollContainer.scrollLeft = nextLeft;
+      scrollContainer.scrollTop = nextTop;
+
+      const consumedX = prevLeft - nextLeft;
+      const consumedY = prevTop - nextTop;
+      const residualX = dx - consumedX;
+      const residualY = dy - consumedY;
+      if (residualX || residualY) {
+        mobileCursorScreenOffset = clampMobileCursorScreenOffset({
+          x: (mobileCursorScreenOffset?.x || 0) + residualX,
+          y: (mobileCursorScreenOffset?.y || 0) + residualY
+        });
+      }
+      syncMobileCursorWorldFromScreen();
+      updateMobileCanvasCursor();
     }
 
     function flushMobileCursorGesture() {
@@ -10196,7 +10224,7 @@ function getWorldPoint(e) {
       const dy = mobileCursorGesture.pendingDy || 0;
       mobileCursorGesture.pendingDx = 0;
       mobileCursorGesture.pendingDy = 0;
-      if (dx || dy) applyMobileCursorDelta(dx, dy);
+      if (dx || dy) applyMobileScrollDelta(dx, dy);
     }
 
     function scheduleMobileCursorGestureFrame() {
