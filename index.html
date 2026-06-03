@@ -10212,6 +10212,9 @@ function getWorldPoint(e) {
     let mobileCursorScreenOffset = null;
     let mobileLastDirectStationTap = null;
     let mobileGestureCooldownUntil = 0;
+    let mobileHoldDrag = null;
+    const MOBILE_HOLD_DRAG_DELAY_MS = 320;
+    const MOBILE_HOLD_DRAG_CANCEL_PX = 10;
 
     function isRouteDemoRecording() {
       return !!(state.routeDemo && state.routeDemo.recording);
@@ -10222,6 +10225,7 @@ function getWorldPoint(e) {
       stampDrag = null;
       textDrag = null;
       cropDrag = null;
+      cancelMobileHoldDrag(true);
       state.isDragging = false;
       if (canvas) canvas.style.cursor = state.isPanning ? 'grab' : 'crosshair';
     }
@@ -10391,7 +10395,10 @@ function getWorldPoint(e) {
       const dy = mobileCursorGesture.pendingDy || 0;
       mobileCursorGesture.pendingDx = 0;
       mobileCursorGesture.pendingDy = 0;
-      if (dx || dy) applyMobileScrollDelta(dx, dy);
+      if (dx || dy) {
+        applyMobileScrollDelta(dx, dy);
+        syncMobileHoldDragTargetFromCursor();
+      }
     }
 
     function scheduleMobileCursorGestureFrame() {
@@ -10524,6 +10531,177 @@ function getWorldPoint(e) {
         mobileLastDirectStationTap = { index: stationIndex, time: now };
       }
       return true;
+    }
+
+    function getMobileHoldTargetFromWorld(wp) {
+      if (!wp || !state.metersPerPixel) return null;
+      if (state.currentMode === 'home') {
+        const homeIndex = findHomeAt(wp);
+        if (homeIndex === -1) return null;
+        const home = state.homePositions[homeIndex];
+        return home ? { type: 'home', id: home.id } : null;
+      }
+      if (state.currentMode === 'station') {
+        const stationIndex = findStationAt(wp);
+        return stationIndex === -1 ? null : { type: 'station', index: stationIndex };
+      }
+      return null;
+    }
+
+    function getMobileHoldTargetPosition(target) {
+      if (!target) return null;
+      if (target.type === 'home') {
+        const home = getHomeById(target.id);
+        return home ? { x: home.x, y: home.y } : null;
+      }
+      if (target.type === 'station') {
+        const station = state.stations[target.index];
+        return station ? { x: station.x, y: station.y } : null;
+      }
+      return null;
+    }
+
+    function selectMobileHoldTarget(target) {
+      if (!target) return false;
+      if (target.type === 'home') return selectHomeById(target.id, { toast: false });
+      if (target.type === 'station') return selectStation(target.index, { toast: false });
+      return false;
+    }
+
+    function applyMobileHoldTargetPosition(target, wp) {
+      if (!target || !wp || !state.img) return false;
+      const point = clampWorldPointToImage(wp);
+      if (target.type === 'home') {
+        const home = getHomeById(target.id);
+        if (!home) return false;
+        home.x = point.x;
+        home.y = point.y;
+        normalizeHomePosition(home);
+        state.routes.forEach(route => {
+          if (route.homeId === home.id && route.points.length > 0) syncRouteStartPointToHome(route);
+        });
+        return true;
+      }
+      if (target.type === 'station') {
+        const station = state.stations[target.index];
+        if (!station) return false;
+        station.x = point.x;
+        station.y = point.y;
+        return true;
+      }
+      return false;
+    }
+
+    function buildMobileHoldDragCandidate(e) {
+      if (!state.img || !state.metersPerPixel) return null;
+      const directWorld = clampWorldPointToImage(getWorldPoint(e));
+      const directTarget = getMobileHoldTargetFromWorld(directWorld);
+      if (directTarget) {
+        const targetPosition = getMobileHoldTargetPosition(directTarget);
+        if (!targetPosition) return null;
+        return {
+          source: 'direct',
+          target: directTarget,
+          worldOffset: {
+            x: targetPosition.x - directWorld.x,
+            y: targetPosition.y - directWorld.y
+          }
+        };
+      }
+      ensureMobileCanvasCursor();
+      if (!mobileCursorWorld) return null;
+      const cursorTarget = getMobileHoldTargetFromWorld(mobileCursorWorld);
+      return cursorTarget ? { source: 'cursor', target: cursorTarget, worldOffset: { x: 0, y: 0 } } : null;
+    }
+
+    function clearMobileHoldDragTimer(drag = mobileHoldDrag) {
+      if (drag?.timerId) {
+        clearTimeout(drag.timerId);
+        drag.timerId = 0;
+      }
+    }
+
+    function beginMobileHoldDragCandidate(e) {
+      cancelMobileHoldDrag(true);
+      const candidate = buildMobileHoldDragCandidate(e);
+      if (!candidate) return;
+      mobileHoldDrag = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        active: false,
+        moved: false,
+        timerId: 0,
+        ...candidate
+      };
+      mobileHoldDrag.timerId = setTimeout(() => activateMobileHoldDrag(e.pointerId), MOBILE_HOLD_DRAG_DELAY_MS);
+    }
+
+    function activateMobileHoldDrag(pointerId) {
+      if (!mobileHoldDrag || mobileHoldDrag.pointerId !== pointerId || mobileHoldDrag.active) return;
+      clearMobileHoldDragTimer();
+      if (!selectMobileHoldTarget(mobileHoldDrag.target)) {
+        mobileHoldDrag = null;
+        return;
+      }
+      mobileHoldDrag.active = true;
+      mobileLastDirectStationTap = null;
+      if (mobileHoldDrag.source === 'direct') {
+        flushMobileCursorGesture();
+        mobileCursorGesture = null;
+      } else {
+        syncMobileHoldDragTargetFromCursor();
+      }
+    }
+
+    function syncMobileHoldDragTargetFromCursor() {
+      if (!mobileHoldDrag?.active || mobileHoldDrag.source !== 'cursor' || !mobileCursorWorld) return false;
+      if (!applyMobileHoldTargetPosition(mobileHoldDrag.target, mobileCursorWorld)) return false;
+      mobileHoldDrag.moved = true;
+      requestRedraw();
+      return true;
+    }
+
+    function updateMobileHoldDragFromPointer(e) {
+      if (!mobileHoldDrag?.active || mobileHoldDrag.pointerId !== e.pointerId || mobileHoldDrag.source !== 'direct') return false;
+      const point = clampWorldPointToImage(getWorldPoint(e));
+      const nextPoint = {
+        x: point.x + (mobileHoldDrag.worldOffset?.x || 0),
+        y: point.y + (mobileHoldDrag.worldOffset?.y || 0)
+      };
+      if (!applyMobileHoldTargetPosition(mobileHoldDrag.target, nextPoint)) return false;
+      mobileHoldDrag.moved = true;
+      requestRedraw();
+      return true;
+    }
+
+    function finishMobileHoldDrag(shouldSave = true) {
+      const drag = mobileHoldDrag;
+      if (!drag) return false;
+      clearMobileHoldDragTimer(drag);
+      if (drag.active && drag.source === 'cursor') flushMobileCursorGesture();
+      mobileHoldDrag = null;
+      if (!drag.active) return false;
+      if (shouldSave) {
+        saveState();
+        if (drag.target.type === 'home') {
+          updateHomeList();
+          updateRouteList();
+        } else if (drag.target.type === 'station') {
+          updateStationList();
+        }
+      }
+      draw();
+      return true;
+    }
+
+    function cancelMobileHoldDrag(saveActive = true) {
+      if (!mobileHoldDrag) return false;
+      if (mobileHoldDrag.active && saveActive) return finishMobileHoldDrag(true);
+      clearMobileHoldDragTimer();
+      const wasActive = mobileHoldDrag.active;
+      mobileHoldDrag = null;
+      return wasActive;
     }
 
     function shouldDeferMobileCanvasTap(e) {
@@ -10674,6 +10852,7 @@ function getWorldPoint(e) {
           rafId: 0,
           moved: false
         };
+        beginMobileHoldDragCandidate(e);
         e.preventDefault();
         e.stopPropagation();
         return true;
@@ -10691,6 +10870,16 @@ function getWorldPoint(e) {
         e.preventDefault();
         e.stopPropagation();
         updateMobilePinchGesture();
+        return true;
+      }
+      if (mobileHoldDrag && mobileHoldDrag.pointerId === e.pointerId && !mobileHoldDrag.active) {
+        const heldDistance = Math.hypot(e.clientX - mobileHoldDrag.startX, e.clientY - mobileHoldDrag.startY);
+        if (heldDistance > MOBILE_HOLD_DRAG_CANCEL_PX) cancelMobileHoldDrag(false);
+      }
+      if (mobileHoldDrag?.active && mobileHoldDrag.pointerId === e.pointerId && mobileHoldDrag.source === 'direct') {
+        updateMobileHoldDragFromPointer(e);
+        e.preventDefault();
+        e.stopPropagation();
         return true;
       }
       if (mobileCursorGesture && mobileCursorGesture.pointerId === e.pointerId) {
@@ -10717,6 +10906,7 @@ function getWorldPoint(e) {
       if (!isMobileTouchPointer(e)) return false;
       const wasPinching = !!mobilePinchGesture;
       const cursorGesture = mobileCursorGesture && mobileCursorGesture.pointerId === e.pointerId ? mobileCursorGesture : null;
+      const holdDrag = mobileHoldDrag && mobileHoldDrag.pointerId === e.pointerId ? mobileHoldDrag : null;
       mobileTouchPointers.delete(e.pointerId);
 
       if (wasPinching) {
@@ -10731,6 +10921,17 @@ function getWorldPoint(e) {
         }
         return true;
       }
+
+      if (holdDrag?.active) {
+        e.preventDefault();
+        e.stopPropagation();
+        finishMobileHoldDrag(true);
+        mobileCursorGesture = null;
+        mobileGestureCooldownUntil = Date.now() + 180;
+        return true;
+      }
+
+      if (holdDrag) cancelMobileHoldDrag(false);
 
       if (cursorGesture) {
         e.preventDefault();
@@ -10753,6 +10954,7 @@ function getWorldPoint(e) {
     function handleMobilePointerCancel(e) {
       if (!isMobileTouchPointer(e)) return false;
       mobileTouchPointers.delete(e.pointerId);
+      if (mobileHoldDrag && mobileHoldDrag.pointerId === e.pointerId) cancelMobileHoldDrag(true);
       flushMobileCursorGesture();
       mobileCursorGesture = null;
       if (mobilePinchGesture && mobileTouchPointers.size < 2) {
