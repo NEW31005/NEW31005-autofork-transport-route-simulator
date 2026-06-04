@@ -1,0 +1,235 @@
+diff --git a/index.html b/index.html
+index f8448d8..d63a7a5 100644
+--- a/index.html
++++ b/index.html
+@@ -2587,15 +2587,16 @@
+ 
+       .mobile-route-list-item {
+         display: grid;
+-        grid-template-columns: minmax(78px, 1fr) minmax(76px, 96px) 44px;
++        grid-template-columns: minmax(74px, 1fr) minmax(64px, 90px) 38px 38px;
+         align-items: center;
+-        gap: 5px;
++        gap: 4px;
+         pointer-events: auto;
+       }
+ 
+       .mobile-route-main-btn,
+       .mobile-route-home-select,
+-      .mobile-route-visibility-btn {
++      .mobile-route-visibility-btn,
++      .mobile-route-delete-btn {
+         min-height: 34px;
+         border: 1px solid rgba(148, 163, 184, 0.56);
+         background: rgba(255, 255, 255, 0.9);
+@@ -2635,8 +2636,9 @@
+         opacity: 0.72;
+       }
+ 
+-      .mobile-route-visibility-btn {
+-        width: 44px;
++      .mobile-route-visibility-btn,
++      .mobile-route-delete-btn {
++        width: 38px;
+         border-radius: 12px;
+         padding: 0;
+         display: inline-flex;
+@@ -2645,6 +2647,12 @@
+         color: #334155;
+       }
+ 
++      .mobile-route-delete-btn {
++        border-color: rgba(220, 53, 69, 0.34);
++        color: #b42318;
++        font-size: 14px;
++      }
++
+       .mobile-route-visibility-btn.solo {
+         border-color: rgba(0, 82, 154, 0.55);
+         color: var(--hakuou-blue);
+@@ -2680,6 +2688,8 @@
+       }
+ 
+       .mobile-mode-tools.route-active {
++        left: 8px;
++        right: 8px;
+         bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+       }
+ 
+@@ -2706,8 +2716,8 @@
+       }
+ 
+       .mobile-mode-tool-row[data-mobile-tools-mode="route"].active {
+-        flex-wrap: wrap;
+-        max-width: min(338px, calc(100vw - 86px));
++        flex-wrap: nowrap;
++        max-width: 100%;
+         overflow: visible;
+         padding: 2px 2px 4px;
+       }
+@@ -2715,7 +2725,7 @@
+       .mobile-route-tool-popover {
+         position: absolute;
+         left: 0;
+-        bottom: calc(100% + 9px);
++        bottom: calc(100% + 7px);
+         z-index: 2;
+         width: min(286px, calc(100vw - 28px));
+         padding: 10px;
+@@ -2741,7 +2751,7 @@
+       }
+ 
+       .mobile-route-tool-popover[data-mobile-route-popover="demo"] {
+-        width: min(318px, calc(100vw - 28px));
++        width: min(318px, calc(100vw - 16px));
+       }
+ 
+       .mobile-route-tool-trigger.active {
+@@ -2764,6 +2774,19 @@
+         backdrop-filter: blur(10px);
+       }
+ 
++      .mobile-mode-tool-row[data-mobile-tools-mode="route"] > .mobile-tool-btn,
++      .mobile-mode-tool-row[data-mobile-tools-mode="route"] > .mobile-tool-check {
++        min-height: 38px;
++        padding: 7px 8px;
++        font-size: 11px;
++        white-space: nowrap;
++        flex: 0 0 auto;
++      }
++
++      .mobile-mode-tool-row[data-mobile-tools-mode="route"] > [data-mobile-tool-action="route-demo-menu"] {
++        padding-inline: 9px;
++      }
++
+       .mobile-tool-btn.primary {
+         background: linear-gradient(135deg, var(--hakuou-blue), var(--hakuou-blue-light));
+         border-color: transparent;
+@@ -5035,7 +5058,7 @@ body.stamp-modal-open header{ pointer-events: none; }
+           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-right" title="右へ50mm">→</button>
+         </div>
+         <div class="mobile-mode-tool-row" data-mobile-tools-mode="route">
+-          <button class="mobile-tool-btn primary mobile-route-tool-trigger" type="button" data-mobile-tool-action="route-add-menu" aria-expanded="false">新規ルート</button>
++          <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="route-add">新規ルート</button>
+           <button class="mobile-tool-btn mobile-route-tool-trigger" type="button" data-mobile-tool-action="route-demo-menu" aria-expanded="false">走行デモ</button>
+           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-pole">反射ポール</button>
+           <button class="mobile-tool-btn route-pole-delete" type="button" data-mobile-tool-action="route-pole-delete" hidden>削除</button>
+@@ -5043,9 +5066,6 @@ body.stamp-modal-open header{ pointer-events: none; }
+             <input type="checkbox" id="mobileRouteDetectionRangeCheckbox">
+             <span>検出範囲</span>
+           </label>
+-          <div class="mobile-route-tool-popover" data-mobile-route-popover="add" hidden>
+-            <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="route-add">+ ルート追加</button>
+-          </div>
+           <div class="mobile-route-tool-popover" data-mobile-route-popover="demo" hidden>
+             <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-play">▶ 再生</button>
+             <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-stop">■ 停止</button>
+@@ -6886,7 +6906,7 @@ function openStampModal(){
+         popover.hidden = true;
+         popover.classList.remove('active');
+       });
+-      document.querySelectorAll('[data-mobile-tool-action="route-add-menu"], [data-mobile-tool-action="route-demo-menu"]').forEach(btn => {
++      document.querySelectorAll('[data-mobile-tool-action="route-demo-menu"]').forEach(btn => {
+         btn.classList.remove('active');
+         btn.setAttribute('aria-expanded', 'false');
+       });
+@@ -6895,8 +6915,7 @@ function openStampModal(){
+     function toggleMobileRouteToolPopover(kind) {
+       const popover = getMobileRoutePopover(kind);
+       if (!popover) return;
+-      const triggerAction = kind === 'add' ? 'route-add-menu' : 'route-demo-menu';
+-      const trigger = document.querySelector(`[data-mobile-tool-action="${triggerAction}"]`);
++      const trigger = document.querySelector('[data-mobile-tool-action="route-demo-menu"]');
+       const wasOpen = popover.classList.contains('active') && !popover.hidden;
+       closeMobileRouteToolPopovers();
+       if (wasOpen) return;
+@@ -6957,9 +6976,8 @@ function openStampModal(){
+       const routePlayText = routeDemo.running && !routeDemo.paused
+         ? '一時停止'
+         : (routeDemo.running && routeDemo.paused ? '再開' : '再生');
+-      setMobileToolButtonState('route-add-menu', false, '新規ルート');
+-      setMobileToolButtonState('route-demo-menu', (!hasPlayableRoute || !routeReady) && !routeDemo.running, '走行デモ');
+-      mirrorMobileToolButton('route-add', 'addRouteBtn', '+ ルート');
++      setMobileToolButtonState('route-add', !document.getElementById('addRouteBtn') || !!document.getElementById('addRouteBtn').disabled, '新規ルート');
++      setMobileToolButtonState('route-demo-menu', routeDemo.recording || ((!hasPlayableRoute || !routeReady) && !routeDemo.running), '走行デモ');
+       setMobileToolButtonState('route-play', (!routeDemo.running && (!hasPlayableRoute || !routeReady)) || routeDemo.recording, routePlayText);
+       setMobileToolButtonState('route-stop', !routeDemo.running || routeDemo.recording, '停止');
+       setMobileToolButtonState('route-save', routeDemo.running || !hasPlayableRoute || !routeReady || routeDemo.recording, routeDemo.recording ? '保存中' : '動画');
+@@ -6967,7 +6985,7 @@ function openStampModal(){
+       const selectedReflectivePole = getSelectedReflectivePoleStamp();
+       setMobileToolButtonState(
+         'route-pole',
+-        !reflectivePoleBtn || !!reflectivePoleBtn.disabled,
++        !canUseMode('stamp') || routeDemo.recording,
+         state.routeDemoReflectivePolePlacementActive ? '設置中' : '反射ポール'
+       );
+       document.querySelector('[data-mobile-tool-action="route-pole"]')?.classList.toggle('active', state.routeDemoReflectivePolePlacementActive === true);
+@@ -6998,10 +7016,6 @@ function openStampModal(){
+         'route-add': 'addRouteBtn',
+         'route-pole': 'routeDemoReflectivePoleBtn'
+       };
+-      if (action === 'route-add-menu') {
+-        toggleMobileRouteToolPopover('add');
+-        return;
+-      }
+       if (action === 'route-demo-menu') {
+         toggleMobileRouteToolPopover('demo');
+         return;
+@@ -7016,6 +7030,11 @@ function openStampModal(){
+         updateMobileModeTools();
+         return;
+       }
++      if (action === 'route-pole') {
++        activateReflectivePoleStampPlacement();
++        updateMobileModeTools();
++        return;
++      }
+       if (action === 'route-pole-delete') {
+         if (!getSelectedReflectivePoleStamp()) {
+           showToast('削除する反射ポールを選択してください', 'warning');
+@@ -9558,6 +9577,7 @@ function draw() {
+             <button class="mobile-route-main-btn" type="button" data-mobile-route-select="${index}" title="${escapeHtml(routeName)}">${escapeHtml(routeName)}</button>
+             <select class="mobile-route-home-select" data-mobile-route-home="${index}" title="接続初期位置" ${state.homePositions.length <= 1 ? 'disabled' : ''}>${homeOptions(route)}</select>
+             <button class="mobile-route-visibility-btn ${visibilityClass}" type="button" data-mobile-route-visibility="${index}" title="${visibilityTitle}" aria-label="${visibilityTitle}">${visibilityIcon}</button>
++            <button class="mobile-route-delete-btn" type="button" data-mobile-route-delete="${index}" title="ルート削除" aria-label="ルート削除">🗑</button>
+           </div>
+         `;
+       }).join('');
+@@ -9612,6 +9632,29 @@ function draw() {
+           cycleRouteVisibility(index);
+         });
+       });
++
++      mobileRouteListOverlay.querySelectorAll('[data-mobile-route-delete]').forEach(btn => {
++        btn.addEventListener('click', (e) => {
++          const index = Number.parseInt(e.currentTarget.dataset.mobileRouteDelete, 10);
++          const route = state.routes[index];
++          if (!route) return;
++          e.preventDefault();
++          e.stopPropagation();
++          if (!confirm(`ルート「${route.name || `ルート${index + 1}`}」を削除しますか？`)) return;
++          const demo = ensureRouteDemoState();
++          if (demo.running || demo.paused) stopRouteDemo({ skipCancel: true });
++          state.routes.splice(index, 1);
++          shiftRouteVisibilityAfterDelete(index);
++          if (state.activeRouteIndex >= state.routes.length) {
++            state.activeRouteIndex = Math.max(0, state.routes.length - 1);
++          }
++          state.segmentSelectStart = null;
++          saveState();
++          updateRouteList();
++          updateLayerToggleUI();
++          requestRedraw();
++        });
++      });
+     }
+ 
+     function selectStation(index, options = {}) {
+@@ -16378,7 +16421,6 @@ measureBtn?.addEventListener('click', () => {
+         showToast(getModeDisabledReason('stamp'), 'warning');
+         return;
+       }
+-      if (demo.running) stopRouteDemo({ skipCancel: true });
+       if (state.currentMode !== 'route' && canUseMode('route')) setMode('route');
+       preloadStampImages();
+       state.routeDemoReflectivePolePlacementActive = !state.routeDemoReflectivePolePlacementActive;
