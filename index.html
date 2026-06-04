@@ -2712,21 +2712,54 @@
         display: flex;
       }
 
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"].active {
-        flex-wrap: nowrap;
-        max-width: 100%;
-        overflow-x: auto;
-        padding: 2px 2px 4px;
-        -webkit-overflow-scrolling: touch;
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"] {
+        position: relative;
       }
 
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-play"] { order: 1; }
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-stop"] { order: 2; }
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] .mobile-tool-select { order: 3; }
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-add"] { order: 4; }
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-save"] { order: 5; }
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-pole"] { order: 6; }
-      .mobile-mode-tool-row[data-mobile-tools-mode="route"] [data-mobile-tool-action="route-pole-delete"] { order: 7; }
+      .mobile-mode-tool-row[data-mobile-tools-mode="route"].active {
+        flex-wrap: wrap;
+        max-width: min(338px, calc(100vw - 86px));
+        overflow: visible;
+        padding: 2px 2px 4px;
+      }
+
+      .mobile-route-tool-popover {
+        position: absolute;
+        left: 0;
+        bottom: calc(100% + 9px);
+        z-index: 2;
+        width: min(286px, calc(100vw - 28px));
+        padding: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22);
+        backdrop-filter: blur(12px);
+        display: none;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        pointer-events: auto;
+      }
+
+      .mobile-route-tool-popover.active {
+        display: flex;
+        animation: mobileToolFadeUp 0.16s ease-out;
+      }
+
+      .mobile-route-tool-popover[hidden] {
+        display: none !important;
+      }
+
+      .mobile-route-tool-popover[data-mobile-route-popover="demo"] {
+        width: min(318px, calc(100vw - 28px));
+      }
+
+      .mobile-route-tool-trigger.active {
+        border-color: rgba(0, 82, 154, 0.55);
+        background: rgba(232, 244, 253, 0.96);
+        color: var(--hakuou-blue);
+      }
 
       .mobile-tool-btn {
         min-height: 40px;
@@ -5013,25 +5046,31 @@ body.stamp-modal-open header{ pointer-events: none; }
           <button class="mobile-tool-btn icon" type="button" data-mobile-tool-action="station-right" title="右へ50mm">→</button>
         </div>
         <div class="mobile-mode-tool-row" data-mobile-tools-mode="route">
-          <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="route-add">+ ルート</button>
-          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-play">▶ 再生</button>
-          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-stop">■ 停止</button>
-          <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-save">動画</button>
-          <label class="mobile-tool-select" for="mobileRouteDemoSpeedSelect">
-            <span>速度</span>
-            <select id="mobileRouteDemoSpeedSelect" aria-label="走行デモ速度">
-              <option value="1.00">等速</option>
-              <option value="2.00">2倍</option>
-              <option value="4.00">4倍</option>
-              <option value="5.00">5倍</option>
-            </select>
-          </label>
+          <button class="mobile-tool-btn primary mobile-route-tool-trigger" type="button" data-mobile-tool-action="route-add-menu" aria-expanded="false">新規ルート</button>
+          <button class="mobile-tool-btn mobile-route-tool-trigger" type="button" data-mobile-tool-action="route-demo-menu" aria-expanded="false">走行デモ</button>
           <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-pole">反射ポール</button>
           <button class="mobile-tool-btn route-pole-delete" type="button" data-mobile-tool-action="route-pole-delete" hidden>削除</button>
           <label class="mobile-tool-check" for="mobileRouteDetectionRangeCheckbox">
             <input type="checkbox" id="mobileRouteDetectionRangeCheckbox">
             <span>検出範囲</span>
           </label>
+          <div class="mobile-route-tool-popover" data-mobile-route-popover="add" hidden>
+            <button class="mobile-tool-btn primary" type="button" data-mobile-tool-action="route-add">+ ルート追加</button>
+          </div>
+          <div class="mobile-route-tool-popover" data-mobile-route-popover="demo" hidden>
+            <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-play">▶ 再生</button>
+            <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-stop">■ 停止</button>
+            <label class="mobile-tool-select" for="mobileRouteDemoSpeedSelect">
+              <span>速度</span>
+              <select id="mobileRouteDemoSpeedSelect" aria-label="走行デモ速度">
+                <option value="1.00">等速</option>
+                <option value="2.00">2倍</option>
+                <option value="4.00">4倍</option>
+                <option value="5.00">5倍</option>
+              </select>
+            </label>
+            <button class="mobile-tool-btn" type="button" data-mobile-tool-action="route-save">動画</button>
+          </div>
         </div>
       </div>
     </div>
@@ -5843,6 +5882,7 @@ function getStampDef(stampOrType) {
     const mobileModeTools = document.getElementById('mobileModeTools');
     const mobileModeToolRows = document.querySelectorAll('[data-mobile-tools-mode]');
     const mobileToolButtons = document.querySelectorAll('[data-mobile-tool-action]');
+    const mobileRouteToolPopovers = document.querySelectorAll('[data-mobile-route-popover]');
     const mobileRouteDemoSpeedSelect = document.getElementById('mobileRouteDemoSpeedSelect');
     const mobileRouteDetectionRangeCheckbox = document.getElementById('mobileRouteDetectionRangeCheckbox');
     const mobileHelpBtn = document.getElementById('mobileHelpBtn');
@@ -6749,6 +6789,7 @@ function openStampModal(){
       document.body.classList.remove('mobile-left-open', 'mobile-right-open');
       mobileOpenControlsBtn?.classList.remove('panel-active');
       mobileOpenResultsBtn?.classList.remove('panel-active');
+      closeMobileRouteToolPopovers();
     }
 
     function isMobileModalActive() {
@@ -6847,6 +6888,35 @@ function openStampModal(){
       btn.hidden = !visible;
     }
 
+    function getMobileRoutePopover(kind) {
+      return document.querySelector(`[data-mobile-route-popover="${kind}"]`);
+    }
+
+    function closeMobileRouteToolPopovers() {
+      mobileRouteToolPopovers.forEach(popover => {
+        popover.hidden = true;
+        popover.classList.remove('active');
+      });
+      document.querySelectorAll('[data-mobile-tool-action="route-add-menu"], [data-mobile-tool-action="route-demo-menu"]').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function toggleMobileRouteToolPopover(kind) {
+      const popover = getMobileRoutePopover(kind);
+      if (!popover) return;
+      const triggerAction = kind === 'add' ? 'route-add-menu' : 'route-demo-menu';
+      const trigger = document.querySelector(`[data-mobile-tool-action="${triggerAction}"]`);
+      const wasOpen = popover.classList.contains('active') && !popover.hidden;
+      closeMobileRouteToolPopovers();
+      if (wasOpen) return;
+      popover.hidden = false;
+      popover.classList.add('active');
+      trigger?.classList.add('active');
+      trigger?.setAttribute('aria-expanded', 'true');
+    }
+
     function mirrorMobileToolButton(action, sourceId, fallbackText) {
       const source = document.getElementById(sourceId);
       setMobileToolButtonState(action, !source || !!source.disabled, source?.textContent?.trim() || fallbackText);
@@ -6872,6 +6942,7 @@ function openStampModal(){
       });
 
       updateMobileRouteListOverlay();
+      if (!show || mode !== 'route') closeMobileRouteToolPopovers();
       if (!show) return;
 
       const hasScale = !!state.metersPerPixel;
@@ -6897,6 +6968,8 @@ function openStampModal(){
       const routePlayText = routeDemo.running && !routeDemo.paused
         ? '一時停止'
         : (routeDemo.running && routeDemo.paused ? '再開' : '再生');
+      setMobileToolButtonState('route-add-menu', false, '新規ルート');
+      setMobileToolButtonState('route-demo-menu', (!hasPlayableRoute || !routeReady) && !routeDemo.running, '走行デモ');
       mirrorMobileToolButton('route-add', 'addRouteBtn', '+ ルート');
       setMobileToolButtonState('route-play', (!routeDemo.running && (!hasPlayableRoute || !routeReady)) || routeDemo.recording, routePlayText);
       setMobileToolButtonState('route-stop', !routeDemo.running || routeDemo.recording, '停止');
@@ -6936,6 +7009,14 @@ function openStampModal(){
         'route-add': 'addRouteBtn',
         'route-pole': 'routeDemoReflectivePoleBtn'
       };
+      if (action === 'route-add-menu') {
+        toggleMobileRouteToolPopover('add');
+        return;
+      }
+      if (action === 'route-demo-menu') {
+        toggleMobileRouteToolPopover('demo');
+        return;
+      }
       if (action === 'home-delete') {
         deleteHomeById(state.activeHomeId);
         updateMobileModeTools();
@@ -6958,11 +7039,13 @@ function openStampModal(){
       }
       if (action === 'route-play') {
         runRouteDemoAction('toggle', null);
+        updateRouteDemoControlUI();
         updateMobileModeTools();
         return;
       }
       if (action === 'route-stop') {
         stopRouteDemo();
+        updateRouteDemoControlUI();
         updateMobileModeTools();
         return;
       }
@@ -6970,6 +7053,9 @@ function openStampModal(){
         await saveCurrentRouteDemoVideo();
         updateMobileModeTools();
         return;
+      }
+      if (action === 'route-add') {
+        closeMobileRouteToolPopovers();
       }
       clickExistingControl(map[action]);
     }
@@ -9983,6 +10069,12 @@ function draw() {
         handleMobileToolAction(btn.dataset.mobileToolAction);
       });
     });
+    mobileModeTools?.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+    });
+    mobileModeTools?.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+    }, { passive: true });
     mobileModeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = btn.dataset.mobileMode;
@@ -9991,6 +10083,7 @@ function draw() {
           return;
         }
         closeMobilePanels();
+        closeMobileRouteToolPopovers();
         setMode(mode);
       });
     });
@@ -11492,6 +11585,7 @@ function getWorldPoint(e) {
 
     function handleMobilePointerDown(e) {
       if (!isMobileTouchPointer(e)) return false;
+      closeMobileRouteToolPopovers();
       mobileTouchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
 
