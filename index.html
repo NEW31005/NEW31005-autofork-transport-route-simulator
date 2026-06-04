@@ -658,6 +658,16 @@
     .file-upload-text { font-size: 11px; font-weight: 600; color: var(--gray-700); }
     .file-upload-hint { font-size: 9px; color: var(--gray-500); margin-top: 2px; }
 
+    .floorplan-file-input {
+      position: fixed;
+      left: -1000px;
+      top: -1000px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .loaded-file-card {
       display: flex;
       align-items: center;
@@ -2183,14 +2193,6 @@
         text-align: center;
         font-family: var(--font-sans);
         font-weight: 900;
-      }
-
-      .mobile-canvas-file-input {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        z-index: 2;
-        cursor: pointer;
       }
 
       .mobile-canvas-upload > span {
@@ -4480,7 +4482,6 @@ body.stamp-modal-open header{ pointer-events: none; }
         </div>
 
         <div class="file-upload mobile-controls-hidden" id="fileUpload">
-          <input type="file" id="fileInput" accept="image/*,.pdf">
           <div class="file-upload-icon">📁</div>
           <div class="file-upload-text">図面・写真をドロップ</div>
           <div class="file-upload-hint">PNG / JPG / PDF</div>
@@ -4961,13 +4962,13 @@ body.stamp-modal-open header{ pointer-events: none; }
 
     <!-- Canvas Area -->
     <div class="canvas-area">
+      <input type="file" id="fileInput" class="floorplan-file-input" accept="image/*,.pdf">
       <div class="canvas-scroll-container" id="canvasScrollContainer">
         <div class="canvas-wrapper" id="canvasWrapper">
           <canvas id="mainCanvas"></canvas>
         </div>
       </div>
-      <label class="mobile-canvas-upload" id="mobileCanvasUploadBtn" role="button" tabindex="0" hidden>
-        <input class="mobile-canvas-file-input" type="file" id="mobileFileInput" accept="image/*,.pdf">
+      <label class="mobile-canvas-upload" id="mobileCanvasUploadBtn" for="fileInput" role="button" tabindex="0" hidden>
         <span class="mobile-canvas-upload-icon" aria-hidden="true"><span class="mobile-upload-glyph"></span></span>
         <span class="mobile-canvas-upload-title">図面・写真を読み込んで下さい</span>
         <span class="mobile-canvas-upload-sub">PDF / PNG / JPG</span>
@@ -5822,7 +5823,6 @@ function getStampDef(stampOrType) {
     const loadedFileName = document.getElementById('loadedFileName');
     const loadedFileDeleteBtn = document.getElementById('loadedFileDeleteBtn');
     const mobileCanvasUploadBtn = document.getElementById('mobileCanvasUploadBtn');
-    const mobileFileInput = document.getElementById('mobileFileInput');
     const modeButtons = document.querySelectorAll('.mode-selector:not(.sub) .mode-btn');
     const subModeButtons = document.querySelectorAll('.mode-selector.sub .mode-btn');
     const mobilePanelOverlay = document.getElementById('mobilePanelOverlay');
@@ -9949,16 +9949,16 @@ function draw() {
     mobileCanvasUploadBtn?.addEventListener('pointerdown', () => {
       closeMobilePanels();
       closeMobileHelpPopup();
-      if (mobileFileInput) mobileFileInput.value = '';
+      if (fileInput) fileInput.value = '';
     });
     mobileCanvasUploadBtn?.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
       closeMobilePanels();
       closeMobileHelpPopup();
-      if (mobileFileInput) {
-        mobileFileInput.value = '';
-        mobileFileInput.click();
+      if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
       }
     });
     mobileHelpBtn?.addEventListener('click', toggleMobileHelpPopup);
@@ -10650,12 +10650,10 @@ async function loadPDF(file) {
       }
     }
 
-    [fileInput, mobileFileInput].filter(Boolean).forEach(input => {
-      input.addEventListener('click', () => {
-        input.value = '';
-      });
-      input.addEventListener('change', handleFloorplanFileInputChange);
+    fileInput?.addEventListener('click', () => {
+      fileInput.value = '';
     });
+    fileInput?.addEventListener('change', handleFloorplanFileInputChange);
 
     loadedFileDeleteBtn?.addEventListener('click', (e) => {
       e.preventDefault();
