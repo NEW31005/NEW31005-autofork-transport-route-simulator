@@ -5481,6 +5481,10 @@ body.stamp-modal-open header{ pointer-events: none; }
     };
 
     const kmhToMs = (kmh) => kmh * 1000 / 3600;
+    const ROUTE_DEMO_DEFAULT_SPEED_FACTOR = 1;
+    const ROUTE_DEMO_MIN_SPEED_FACTOR = 0.5;
+    const ROUTE_DEMO_MAX_SPEED_FACTOR = 5;
+    const ROUTE_DEMO_DEFAULT_RECORDING_SPEED_FACTOR = 3;
 
     // History for undo/redo
     const history = {
@@ -16075,11 +16079,6 @@ measureBtn?.addEventListener('click', () => {
       }
       return false;
     }
-
-    const ROUTE_DEMO_DEFAULT_SPEED_FACTOR = 1;
-    const ROUTE_DEMO_MIN_SPEED_FACTOR = 0.5;
-    const ROUTE_DEMO_MAX_SPEED_FACTOR = 5;
-    const ROUTE_DEMO_DEFAULT_RECORDING_SPEED_FACTOR = 3;
 
     function ensureRouteDemoState() {
       if (!state.routeDemo) state.routeDemo = {};
