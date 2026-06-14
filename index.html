@@ -8595,6 +8595,9 @@ function draw() {
 
       ctx.restore();
       drawCropSelection(ctx, offset, z);
+      if (isRouteDemoRecording()) {
+        drawRouteDemoVideoOverlay(ctx, canvas);
+      }
 
       markUIDirty();
     }
@@ -16126,6 +16129,13 @@ measureBtn?.addEventListener('click', () => {
       empty: { x: 1220, y: 491.5, w: 2398, h: 983 },
       loaded: { x: 1280, y: 547, w: 2456, h: 1095 }
     };
+    const routeDemoVideoLogo = {
+      img: createCanvasSafeImage(),
+      ready: false,
+      failed: false,
+      src: 'StampAssets/rogo.png'
+    };
+    const ROUTE_DEMO_VIDEO_DISCLAIMER = '※実際の走行方向とは異なります';
 
     function ensureDemoSpritesLoaded() {
       if (state._demoSpritesLoaded) return;
@@ -16145,6 +16155,21 @@ measureBtn?.addEventListener('click', () => {
         };
         s.img.src = s.src;
       });
+    }
+
+    function ensureRouteDemoVideoLogoLoaded() {
+      if (state._routeDemoVideoLogoLoaded) return;
+      state._routeDemoVideoLogoLoaded = true;
+      const logo = routeDemoVideoLogo;
+      logo.img.onload = () => {
+        logo.ready = true;
+        logo.failed = false;
+      };
+      logo.img.onerror = () => {
+        logo.failed = true;
+        console.warn('Route demo logo load failed:', logo.src);
+      };
+      logo.img.src = logo.src;
     }
 
     function getRouteCumDistances(route) {
@@ -16676,11 +16701,12 @@ measureBtn?.addEventListener('click', () => {
 
     function waitForDemoSpritesReady(timeoutMs = 5000) {
       ensureDemoSpritesLoaded();
-      const sprites = Object.values(demoSprites || {});
-      if (sprites.every(s => s.ready && s.img && s.img.complete)) return Promise.resolve();
+      ensureRouteDemoVideoLogoLoaded();
+      const assets = [...Object.values(demoSprites || {}), routeDemoVideoLogo];
+      if (assets.every(s => (s.ready && s.img && s.img.complete) || s.failed)) return Promise.resolve();
       return Promise.race([
-        Promise.all(sprites.map(s => new Promise(resolve => {
-          if (s.ready && s.img && s.img.complete) return resolve();
+        Promise.all(assets.map(s => new Promise(resolve => {
+          if ((s.ready && s.img && s.img.complete) || s.failed) return resolve();
           const done = () => resolve();
           s.img.addEventListener('load', done, { once: true });
           s.img.addEventListener('error', done, { once: true });
@@ -16698,6 +16724,74 @@ measureBtn?.addEventListener('click', () => {
       }
       downloadBlob(blob, fileName);
       return true;
+    }
+
+    function drawRouteDemoVideoDisclaimer(targetCtx, targetCanvas) {
+      if (!targetCtx || !targetCanvas) return;
+      const text = ROUTE_DEMO_VIDEO_DISCLAIMER;
+      const width = targetCanvas.width || 0;
+      const height = targetCanvas.height || 0;
+      if (!width || !height) return;
+
+      const fontSize = Math.max(14, Math.min(28, Math.round(width * 0.018)));
+      const paddingX = Math.max(12, Math.round(fontSize * 0.85));
+      const paddingY = Math.max(8, Math.round(fontSize * 0.45));
+      const margin = Math.max(14, Math.round(fontSize * 0.9));
+
+      targetCtx.save();
+      targetCtx.font = `700 ${fontSize}px "Noto Sans JP", "Yu Gothic", sans-serif`;
+      targetCtx.textAlign = 'right';
+      targetCtx.textBaseline = 'bottom';
+      const metrics = targetCtx.measureText(text);
+      const boxW = Math.ceil(metrics.width + paddingX * 2);
+      const boxH = Math.ceil(fontSize + paddingY * 2);
+      const boxX = Math.max(margin, width - margin - boxW);
+      const boxY = Math.max(margin, height - margin - boxH);
+
+      roundedRectPath(targetCtx, boxX, boxY, boxW, boxH, Math.max(6, Math.round(fontSize * 0.35)));
+      targetCtx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+      targetCtx.fill();
+      targetCtx.fillStyle = '#ffffff';
+      targetCtx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      targetCtx.shadowBlur = 4;
+      targetCtx.fillText(text, width - margin - paddingX, height - margin - paddingY);
+      targetCtx.restore();
+    }
+
+    function drawRouteDemoVideoLogo(targetCtx, targetCanvas) {
+      if (!targetCtx || !targetCanvas) return;
+      const logo = routeDemoVideoLogo;
+      if (!logo || !logo.ready || !isCanvasImageReady(logo.img)) return;
+      const width = targetCanvas.width || 0;
+      const height = targetCanvas.height || 0;
+      const naturalW = logo.img.naturalWidth || logo.img.width || 0;
+      const naturalH = logo.img.naturalHeight || logo.img.height || 0;
+      if (!width || !height || !naturalW || !naturalH) return;
+
+      const margin = Math.max(14, Math.round(width * 0.015));
+      const maxLogoW = Math.max(150, Math.min(320, Math.round(width * 0.24)));
+      const maxLogoH = Math.max(28, Math.min(58, Math.round(height * 0.075)));
+      const scale = Math.min(maxLogoW / naturalW, maxLogoH / naturalH);
+      const logoW = Math.round(naturalW * scale);
+      const logoH = Math.round(naturalH * scale);
+      const paddingX = Math.max(10, Math.round(logoH * 0.38));
+      const paddingY = Math.max(7, Math.round(logoH * 0.22));
+      const boxW = logoW + paddingX * 2;
+      const boxH = logoH + paddingY * 2;
+      const boxX = margin;
+      const boxY = height - margin - boxH;
+
+      targetCtx.save();
+      roundedRectPath(targetCtx, boxX, boxY, boxW, boxH, Math.max(6, Math.round(logoH * 0.2)));
+      targetCtx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+      targetCtx.fill();
+      targetCtx.drawImage(logo.img, boxX + paddingX, boxY + paddingY, logoW, logoH);
+      targetCtx.restore();
+    }
+
+    function drawRouteDemoVideoOverlay(targetCtx, targetCanvas) {
+      drawRouteDemoVideoLogo(targetCtx, targetCanvas);
+      drawRouteDemoVideoDisclaimer(targetCtx, targetCanvas);
     }
 
     async function saveCurrentRouteDemoVideo() {
@@ -17097,6 +17191,7 @@ measureBtn?.addEventListener('click', () => {
       const route = state.routes?.[routeIndex];
       drawCleanDemoVehicle(targetCtx, route, dist, offset, z);
       drawTextAnnotationsLayer(targetCtx, offset, z, true);
+      drawRouteDemoVideoOverlay(targetCtx, targetCanvas);
     }
 
     async function recordCleanRouteDemoVideo(routeIndex, recordingSpeedFactor = ROUTE_DEMO_DEFAULT_RECORDING_SPEED_FACTOR) {
@@ -17109,6 +17204,7 @@ measureBtn?.addEventListener('click', () => {
       const cum = getRouteCumDistances(route);
       const total = cum[cum.length - 1] || 0;
       if (!total) throw new Error('録画できるルートがありません');
+      await waitForDemoSpritesReady();
 
       const recCanvas = document.createElement('canvas');
       recCanvas.width = Math.max(640, canvas.width || 1280);
