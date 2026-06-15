@@ -702,10 +702,40 @@
       text-overflow: ellipsis;
     }
 
-    .loaded-file-delete {
+    .loaded-file-scale {
+      display: none;
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--gray-600);
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .loaded-file-scale.show {
+      display: block;
+    }
+
+    .loaded-file-actions {
       flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: stretch;
+    }
+
+    .loaded-file-delete {
       padding: 6px 10px;
       font-size: 10px;
+    }
+
+    .loaded-scale-toggle {
+      display: none;
+      padding: 6px 10px;
+      font-size: 10px;
+    }
+
+    .loaded-scale-toggle.show {
+      display: inline-flex;
     }
 
     /* Mode Selector */
@@ -4571,8 +4601,12 @@ body.stamp-modal-open header{ pointer-events: none; }
           <div class="loaded-file-meta">
             <div class="loaded-file-label">読み込み済み図面</div>
             <div class="loaded-file-name" id="loadedFileName">-</div>
+            <div class="loaded-file-scale" id="loadedFileScaleInfo">①-② -</div>
           </div>
-          <button class="btn btn-secondary loaded-file-delete" id="loadedFileDeleteBtn" type="button">削除</button>
+          <div class="loaded-file-actions">
+            <button class="btn btn-secondary loaded-file-delete" id="loadedFileDeleteBtn" type="button">削除</button>
+            <button class="btn loaded-scale-toggle" id="loadedScaleToggleBtn" type="button">表示</button>
+          </div>
         </div>
 
         <div class="divider mobile-controls-hidden"></div>
@@ -4639,7 +4673,7 @@ body.stamp-modal-open header{ pointer-events: none; }
 
         <div id="homeSettings" class="mobile-controls-hidden" style="display: none;">
           <p style="font-size: 10px; color: var(--gray-600);">
-            🏠 図面上をクリックでAutoFork初期位置を設定
+            🏠 未配置はクリックで設定／既存アイコンはドラッグで移動
           </p>
         
           <div class="warning-box" id="homeNeedScaleWarning" style="display:none; margin-top: 8px;">
@@ -5908,7 +5942,9 @@ function getStampDef(stampOrType) {
     const fileUpload = document.getElementById('fileUpload');
     const loadedFileCard = document.getElementById('loadedFileCard');
     const loadedFileName = document.getElementById('loadedFileName');
+    const loadedFileScaleInfo = document.getElementById('loadedFileScaleInfo');
     const loadedFileDeleteBtn = document.getElementById('loadedFileDeleteBtn');
+    const loadedScaleToggleBtn = document.getElementById('loadedScaleToggleBtn');
     const mobileCanvasUploadBtn = document.getElementById('mobileCanvasUploadBtn');
     const modeButtons = document.querySelectorAll('.mode-selector:not(.sub) .mode-btn');
     const subModeButtons = document.querySelectorAll('.mode-selector.sub .mode-btn');
@@ -6548,11 +6584,42 @@ function openStampModal(){
       });
     }
 
+    function trimTrailingZeros(value) {
+      return String(value).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    }
+
+    function getScaleReferenceDistanceMeters() {
+      if (!state.metersPerPixel || !Array.isArray(state.scalePoints) || state.scalePoints.length !== 2) return null;
+      const [a, b] = state.scalePoints;
+      if (!a || !b) return null;
+      const distM = Math.hypot(a.x - b.x, a.y - b.y) * state.metersPerPixel;
+      return Number.isFinite(distM) && distM > 0 ? distM : null;
+    }
+
+    function formatScaleReferenceLabel() {
+      const distM = getScaleReferenceDistanceMeters();
+      if (!distM) return '';
+      const digits = distM >= 100 ? 1 : 2;
+      return `①-② ${trimTrailingZeros(distM.toFixed(digits))}m`;
+    }
+
     function updateFileUploadDisplay() {
       const hasFloorplan = !!state.img;
+      const scaleLabel = hasFloorplan ? formatScaleReferenceLabel() : '';
       if (fileUpload) fileUpload.hidden = hasFloorplan;
       if (loadedFileCard) loadedFileCard.hidden = !hasFloorplan;
       if (loadedFileName) loadedFileName.textContent = hasFloorplan ? (state.imgName || '読み込み済み図面') : '-';
+      if (loadedFileScaleInfo) {
+        loadedFileScaleInfo.textContent = scaleLabel || '①-② -';
+        loadedFileScaleInfo.classList.toggle('show', !!scaleLabel);
+      }
+      if (loadedScaleToggleBtn) {
+        loadedScaleToggleBtn.classList.toggle('show', !!scaleLabel);
+        loadedScaleToggleBtn.disabled = !scaleLabel;
+        loadedScaleToggleBtn.textContent = state.scalePointsVisible ? '非表示' : '表示';
+        loadedScaleToggleBtn.setAttribute('aria-pressed', state.scalePointsVisible ? 'true' : 'false');
+        loadedScaleToggleBtn.title = state.scalePointsVisible ? '縮尺の2点表示を隠す' : '縮尺の2点表示を表示';
+      }
       if (mobileCanvasUploadBtn) mobileCanvasUploadBtn.hidden = hasFloorplan;
     }
 
@@ -6728,6 +6795,14 @@ function openStampModal(){
       if (!home) return;
       route.points[0] = { x: home.x, y: home.y };
       invalidateRouteDemoCache(route);
+    }
+
+    function syncRoutesForHomeId(homeId) {
+      state.routes.forEach(route => {
+        if (route.homeId === homeId && route.points.length > 0) {
+          syncRouteStartPointToHome(route);
+        }
+      });
     }
 
     // Global safety nets: never fail silently
@@ -8304,10 +8379,34 @@ function draw() {
         ctx.setLineDash([8, 8]);
         
         if (state.scalePoints.length === 2) {
+          const x1 = state.scalePoints[0].x * z + offset.x;
+          const y1 = state.scalePoints[0].y * z + offset.y;
+          const x2 = state.scalePoints[1].x * z + offset.x;
+          const y2 = state.scalePoints[1].y * z + offset.y;
           ctx.beginPath();
-          ctx.moveTo(state.scalePoints[0].x * z + offset.x, state.scalePoints[0].y * z + offset.y);
-          ctx.lineTo(state.scalePoints[1].x * z + offset.x, state.scalePoints[1].y * z + offset.y);
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
           ctx.stroke();
+
+          const scaleLabel = formatScaleReferenceLabel();
+          if (scaleLabel) {
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2;
+            ctx.font = 'bold 13px "Noto Sans JP", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const padX = 10;
+            const metrics = ctx.measureText(scaleLabel);
+            const w = metrics.width + padX * 2;
+            const h = 22;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+            ctx.strokeStyle = '#ffc107';
+            ctx.lineWidth = 2;
+            ctx.fillRect(mx - w / 2, my - h / 2, w, h);
+            ctx.strokeRect(mx - w / 2, my - h / 2, w, h);
+            ctx.fillStyle = '#111827';
+            ctx.fillText(scaleLabel, mx, my);
+          }
         }
 
         ctx.setLineDash([]);
@@ -8325,7 +8424,7 @@ function draw() {
           ctx.font = 'bold 12px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(i + 1, px, py);
+          ctx.fillText(i === 0 ? '①' : '②', px, py);
         });
       }
 
@@ -9538,7 +9637,7 @@ function draw() {
       }
       const hints = {
         scale: '📏 縮尺：2点クリック→実距離入力',
-        home: state.metersPerPixel ? '🏠 初期位置：クリックで設定' : '🏠 初期位置：先に📏縮尺を確定してください',
+        home: state.metersPerPixel ? '🏠 初期位置：未配置はクリックで設定／既存アイコンはドラッグで移動' : '🏠 初期位置：先に📏縮尺を確定してください',
         station: '📍 ステーション：空き場所クリックで配置／既存クリックで選択／ダブルクリックで編集',
         route: state.homePositions.length === 0 ? '✏️ ルート：先に🏠初期位置を設定してください' :
                state.routeSubMode === 'draw' ? '✏️ ルート：クリックで経由点追加' :
@@ -10769,6 +10868,7 @@ async function loadPDF(file) {
 
     function resetDataOnly() {
       state.scalePoints = [];
+      state.scalePointsVisible = false;
       state.metersPerPixel = null;
       state.homePositions = [];
       state.activeHomeId = 'a';
@@ -10867,6 +10967,7 @@ async function loadPDF(file) {
     function resetAllWithScale() {
       // Reset including scale (keep uploaded image)
       state.scalePoints = [];
+      state.scalePointsVisible = false;
       state.metersPerPixel = null;
       state.homePositions = [];
       state.activeHomeId = 'a';
@@ -10928,6 +11029,18 @@ async function loadPDF(file) {
     loadedFileDeleteBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       clearLoadedFloorplan();
+    });
+
+    loadedScaleToggleBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!formatScaleReferenceLabel()) {
+        showToast('先に縮尺を設定してください', 'warning');
+        return;
+      }
+      state.scalePointsVisible = !state.scalePointsVisible;
+      updateFileUploadDisplay();
+      saveState();
+      draw();
     });
 
     // ★ バグ①修正：ファイルクリック機能の追加
@@ -11106,6 +11219,7 @@ function getWorldPoint(e) {
       requestRedraw();
     }
 
+    let homeDrag = null;
     let stationDrag = null;
     let stampDrag = null;
     let textDrag = null;
@@ -11126,6 +11240,7 @@ function getWorldPoint(e) {
     }
 
     function cancelCanvasInteractionState() {
+      homeDrag = null;
       stationDrag = null;
       stampDrag = null;
       textDrag = null;
@@ -11370,6 +11485,7 @@ function getWorldPoint(e) {
         document.getElementById('scaleModal').classList.add('active');
         document.getElementById('scaleModalDistance').focus();
       }
+      updateFileUploadDisplay();
       saveState();
     }
 
@@ -11392,17 +11508,12 @@ function getWorldPoint(e) {
 
       const existingHome = getHomeById(state.activeHomeId);
       if (existingHome) {
-        existingHome.x = wp.x;
-        existingHome.y = wp.y;
-        normalizeHomePosition(existingHome);
+        showToast('初期位置はアイコンをドラッグして移動してください', 'warning');
+        return true;
       } else {
         state.homePositions.push({ id: state.activeHomeId, x: wp.x, y: wp.y, rotDeg: 0 });
       }
-      state.routes.forEach(r => {
-        if (r.homeId === state.activeHomeId && r.points.length > 0) {
-          syncRouteStartPointToHome(r);
-        }
-      });
+      syncRoutesForHomeId(state.activeHomeId);
       saveState();
       updateHomeList();
       showToast(`初期位置 ${formatHomeIdLabel(state.activeHomeId)} を設定`);
@@ -12241,6 +12352,25 @@ function getWorldPoint(e) {
         }
       }
 
+      if (state.currentMode === 'home' && state.metersPerPixel) {
+        const homeIndex = findHomeAt(wp);
+        if (homeIndex !== -1) {
+          const home = state.homePositions[homeIndex];
+          normalizeHomePosition(home);
+          selectHomeById(home.id, { toast: false });
+          homeDrag = {
+            id: home.id,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startX: home.x,
+            startY: home.y,
+            moved: false
+          };
+          canvas.style.cursor = 'move';
+          return;
+        }
+      }
+
       switch (state.currentMode) {
         case 'scale':
           addScalePointFromWorld(wp);
@@ -12392,6 +12522,23 @@ function getWorldPoint(e) {
         return;
       }
       if (handleMobilePointerMove(e)) return;
+      if (homeDrag) {
+        const dxScreen = e.clientX - homeDrag.startClientX;
+        const dyScreen = e.clientY - homeDrag.startClientY;
+        if (!homeDrag.moved && Math.hypot(dxScreen, dyScreen) < 3) return;
+        const home = getHomeById(homeDrag.id);
+        if (!home) {
+          homeDrag = null;
+          return;
+        }
+        homeDrag.moved = true;
+        home.x = homeDrag.startX + dxScreen / state.zoom;
+        home.y = homeDrag.startY + dyScreen / state.zoom;
+        normalizeHomePosition(home);
+        syncRoutesForHomeId(home.id);
+        requestRedraw();
+        return;
+      }
       if (stationDrag) {
         const dxScreen = e.clientX - stationDrag.startClientX;
         const dyScreen = e.clientY - stationDrag.startClientY;
@@ -12466,6 +12613,16 @@ function getWorldPoint(e) {
         canvas.style.cursor = state.cropMode ? 'crosshair' : (state.isPanning ? 'grab' : 'crosshair');
         return;
       }
+      if (homeDrag) {
+        if (homeDrag.moved) {
+          saveState();
+          updateHomeList();
+          updateRouteList();
+          draw();
+        }
+        homeDrag = null;
+        canvas.style.cursor = state.isPanning ? 'grab' : 'crosshair';
+      }
       if (stationDrag) {
         if (stationDrag.moved) {
           saveState();
@@ -12500,6 +12657,7 @@ function getWorldPoint(e) {
 
     canvas.addEventListener('pointercancel', (e) => {
       handleMobilePointerCancel(e);
+      homeDrag = null;
       stationDrag = null;
       stampDrag = null;
       textDrag = null;
@@ -13018,6 +13176,7 @@ function handleStampClick(wp) {
         const hadScale = !!state.metersPerPixel;
         state.metersPerPixel = realM / px;
         state.scalePointsVisible = false;
+        updateFileUploadDisplay();
         showToast('縮尺を設定');
         // ③ scaleStatus更新
         const scaleStatus = document.getElementById('scaleStatus');
@@ -13034,12 +13193,14 @@ function handleStampClick(wp) {
     // ③ 縮尺モーダルのイベント
     document.getElementById('scaleModalClose').addEventListener('click', () => {
       state.scalePointsVisible = false;
+      updateFileUploadDisplay();
       document.getElementById('scaleModal').classList.remove('active');
       draw();
     });
 
     document.getElementById('scaleModalCancel').addEventListener('click', () => {
       state.scalePointsVisible = false;
+      updateFileUploadDisplay();
       document.getElementById('scaleModal').classList.remove('active');
       draw();
     });
