@@ -16271,9 +16271,9 @@ measureBtn?.addEventListener('click', () => {
       img: createCanvasSafeImage(),
       ready: false,
       failed: false,
-      src: 'StampAssets/rogo.png'
+      src: 'StampAssets/rogo_report.png'
     };
-    const ROUTE_DEMO_VIDEO_DISCLAIMER = '※実際の走行方向とは異なります';
+    const ROUTE_DEMO_VIDEO_DISCLAIMER = '※走行デモにおけるAutoForkの走行方向はイメージであり、実際の走行方向とは異なります。';
 
     function ensureDemoSpritesLoaded() {
       if (state._demoSpritesLoaded) return;
@@ -16871,18 +16871,32 @@ measureBtn?.addEventListener('click', () => {
       const height = targetCanvas.height || 0;
       if (!width || !height) return;
 
-      const fontSize = Math.max(14, Math.min(28, Math.round(width * 0.018)));
-      const paddingX = Math.max(12, Math.round(fontSize * 0.85));
-      const paddingY = Math.max(8, Math.round(fontSize * 0.45));
+      const fontSize = Math.max(11, Math.min(16, Math.round(width * 0.012)));
+      const paddingX = Math.max(10, Math.round(fontSize * 0.75));
+      const paddingY = Math.max(7, Math.round(fontSize * 0.42));
       const margin = Math.max(14, Math.round(fontSize * 0.9));
 
       targetCtx.save();
       targetCtx.font = `700 ${fontSize}px "Noto Sans JP", "Yu Gothic", sans-serif`;
       targetCtx.textAlign = 'right';
       targetCtx.textBaseline = 'bottom';
-      const metrics = targetCtx.measureText(text);
-      const boxW = Math.ceil(metrics.width + paddingX * 2);
-      const boxH = Math.ceil(fontSize + paddingY * 2);
+      const maxTextW = Math.max(220, Math.min(width - margin * 2, Math.round(width * 0.72)));
+      const lines = [];
+      let line = '';
+      Array.from(text).forEach(char => {
+        const nextLine = line + char;
+        if (line && targetCtx.measureText(nextLine).width > maxTextW) {
+          lines.push(line);
+          line = char;
+        } else {
+          line = nextLine;
+        }
+      });
+      if (line) lines.push(line);
+      const lineHeight = Math.round(fontSize * 1.35);
+      const textW = Math.min(maxTextW, Math.max(...lines.map(lineText => targetCtx.measureText(lineText).width), 0));
+      const boxW = Math.ceil(textW + paddingX * 2);
+      const boxH = Math.ceil(lineHeight * lines.length + paddingY * 2);
       const boxX = Math.max(margin, width - margin - boxW);
       const boxY = Math.max(margin, height - margin - boxH);
 
@@ -16892,7 +16906,10 @@ measureBtn?.addEventListener('click', () => {
       targetCtx.fillStyle = '#ffffff';
       targetCtx.shadowColor = 'rgba(0, 0, 0, 0.35)';
       targetCtx.shadowBlur = 4;
-      targetCtx.fillText(text, width - margin - paddingX, height - margin - paddingY);
+      lines.forEach((lineText, index) => {
+        const y = boxY + paddingY + lineHeight * (index + 1);
+        targetCtx.fillText(lineText, width - margin - paddingX, y);
+      });
       targetCtx.restore();
     }
 
@@ -16907,13 +16924,13 @@ measureBtn?.addEventListener('click', () => {
       if (!width || !height || !naturalW || !naturalH) return;
 
       const margin = Math.max(14, Math.round(width * 0.015));
-      const maxLogoW = Math.max(150, Math.min(320, Math.round(width * 0.24)));
-      const maxLogoH = Math.max(28, Math.min(58, Math.round(height * 0.075)));
+      const maxLogoW = Math.max(150, Math.min(320, Math.round(width * 0.26)));
+      const maxLogoH = Math.max(52, Math.min(96, Math.round(height * 0.13)));
       const scale = Math.min(maxLogoW / naturalW, maxLogoH / naturalH);
       const logoW = Math.round(naturalW * scale);
       const logoH = Math.round(naturalH * scale);
-      const paddingX = Math.max(10, Math.round(logoH * 0.38));
-      const paddingY = Math.max(7, Math.round(logoH * 0.22));
+      const paddingX = Math.max(10, Math.round(logoH * 0.16));
+      const paddingY = Math.max(7, Math.round(logoH * 0.12));
       const boxW = logoW + paddingX * 2;
       const boxH = logoH + paddingY * 2;
       const boxX = margin;
@@ -16921,7 +16938,7 @@ measureBtn?.addEventListener('click', () => {
 
       targetCtx.save();
       roundedRectPath(targetCtx, boxX, boxY, boxW, boxH, Math.max(6, Math.round(logoH * 0.2)));
-      targetCtx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+      targetCtx.fillStyle = 'rgba(15, 23, 42, 0.84)';
       targetCtx.fill();
       targetCtx.drawImage(logo.img, boxX + paddingX, boxY + paddingY, logoW, logoH);
       targetCtx.restore();
