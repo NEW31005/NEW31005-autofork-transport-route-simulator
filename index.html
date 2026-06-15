@@ -5153,7 +5153,7 @@ body.stamp-modal-open header{ pointer-events: none; }
               <div class="param-item"><span class="param-label">空荷走行</span><span class="param-value">5.0 km/h</span></div>
               <div class="param-item"><span class="param-label">積載走行</span><span class="param-value">4.5 km/h</span></div>
               <div class="param-item"><span class="param-label">パレット認識</span><span class="param-value">0.72 km/h</span></div>
-              <div class="param-item"><span class="param-label">90°旋回</span><span class="param-value">10 秒</span></div>
+              <div class="param-item"><span class="param-label">90°旋回</span><span class="param-value">9 秒</span></div>
               <div class="param-item"><span class="param-label">180°旋回</span><span class="param-value">13 秒</span></div>
               <div class="param-item"><span class="param-label">荷積み時間</span><span class="param-value">6 秒</span></div>
               <div class="param-item"><span class="param-label">荷下ろし時間</span><span class="param-value">6 秒</span></div>
@@ -5556,7 +5556,7 @@ body.stamp-modal-open header{ pointer-events: none; }
       speedEmpty: 5.0,
       speedLoaded: 4.5,
       speedRecognize: 0.72,
-      timeTurn90: 10,
+      timeTurn90: 9,
       timeTurn180: 13,
       timeLoading: 6,  // Changed from 7
       timeUnloading: 6, // Changed from 7
@@ -9486,7 +9486,7 @@ function draw() {
       document.getElementById('loadingTime').textContent = `${result.totalLoadingCount}回 × 6秒 = ${formatTimeSec(result.loadingTime)}`;
       document.getElementById('unloadingTime').textContent = `${result.totalUnloadingCount}回 × 6秒 = ${formatTimeSec(result.unloadingTime)}`;
       const turns = (result.turnPoints ? result.turnPoints.length : 0);
-      document.getElementById('turnTime').textContent = `${turns}回 × 10秒 = ${formatTimeSec(result.turnTime)}`;
+      document.getElementById('turnTime').textContent = `${turns}回 × ${SPEC.timeTurn90}秒 = ${formatTimeSec(result.turnTime)}`;
       const turn180El = document.getElementById('turn180Time');
       if (turn180El) turn180El.textContent = `${result.turn180Count || 0}回 × 13秒 = ${formatTimeSec(result.turn180Time || 0)}`;
       const tpEl = document.getElementById('turnPointsCount');
@@ -16271,9 +16271,9 @@ measureBtn?.addEventListener('click', () => {
       img: createCanvasSafeImage(),
       ready: false,
       failed: false,
-      src: 'StampAssets/rogo_report.png'
+      src: 'StampAssets/rogo_movie.png'
     };
-    const ROUTE_DEMO_VIDEO_DISCLAIMER = '※走行デモにおけるAutoForkの走行方向はイメージであり、実際の走行方向とは異なります。';
+    const ROUTE_DEMO_VIDEO_DISCLAIMER = '※AutoForkの走行方向はイメージであり、実際の走行方向とは異なります。';
 
     function ensureDemoSpritesLoaded() {
       if (state._demoSpritesLoaded) return;
