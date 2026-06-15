@@ -9355,7 +9355,7 @@ function draw() {
     // Calculate route time - Updated logic
     function calculateRouteTime(route) {
       if (!route || route.points.length < 2 || !state.metersPerPixel) {
-        return { distance: 0, routeDist: 0, emptyDist: 0, loadedDist: 0, recognizeDist: 0, emptyTime: 0, loadedTime: 0, corners: 0, effectiveCorners: 0, turnTime: 0, turn180Count: 0, turn180Time: 0, totalLoadingCount: 0, totalUnloadingCount: 0, loadingTime: 0, unloadingTime: 0, recognizeTime: 0, taskTime: 0, totalTime: 0, turnPoints: [], turn180Points: [] };
+        return { distance: 0, routeDist: 0, emptyDist: 0, loadedDist: 0, recognizeDist: 0, emptyTime: 0, loadedTime: 0, corners: 0, effectiveCorners: 0, turnTime: 0, turn180Count: 0, turn180Time: 0, totalLoadingCount: 0, totalUnloadingCount: 0, loadingTime: 0, unloadingTime: 0, recognizeTime: 0, taskCount: 0, taskTime: 0, totalTime: 0, turnPoints: [], turn180Points: [] };
       }
 
       let routeDist = 0;
@@ -9424,7 +9424,8 @@ function draw() {
       const loadedTime = loadedDist / kmhToMs(SPEC.speedLoaded);
       const turnTime = corners * SPEC.timeTurn90;
       const turn180Time = turn180Count * SPEC.timeTurn180;
-      const taskTime = SPEC.timePerTask * 2;
+      const taskCount = (totalHandleCount * 2) + 1 + corners + turn180Count;
+      const taskTime = taskCount * SPEC.timePerTask;
 
       const totalTime = emptyTime + loadedTime + turnTime + turn180Time + loadingTime + unloadingTime + recognizeTime + taskTime;
 
@@ -9446,6 +9447,7 @@ function draw() {
         loadingTime,
         unloadingTime,
         recognizeTime,
+        taskCount,
         taskTime,
         totalTime,
         turnPoints,
@@ -9490,7 +9492,7 @@ function draw() {
       const tpEl = document.getElementById('turnPointsCount');
       if (tpEl) tpEl.textContent = `90° ${turns} / 180° ${result.turn180Count || 0}`;
       document.getElementById('recognizeTime').textContent = `${formatTimeSec(result.recognizeTime)} / ${formatNumber(result.recognizeDist || 0)} m`;
-      document.getElementById('taskTime').textContent = formatTimeSec(result.taskTime);
+      document.getElementById('taskTime').textContent = `${result.taskCount || 0}回 × ${SPEC.timePerTask}秒 = ${formatTimeSec(result.taskTime)}`;
       document.getElementById('totalTime').textContent = formatTime(result.totalTime);
 
       document.getElementById('routeCount').textContent = state.routes.length;
