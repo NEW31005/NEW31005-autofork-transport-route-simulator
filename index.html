@@ -4601,7 +4601,7 @@ body.stamp-modal-open header{ pointer-events: none; }
           <div class="loaded-file-meta">
             <div class="loaded-file-label">読み込み済み図面</div>
             <div class="loaded-file-name" id="loadedFileName">-</div>
-            <div class="loaded-file-scale" id="loadedFileScaleInfo">①-② -</div>
+            <div class="loaded-file-scale" id="loadedFileScaleInfo">縮尺情報 ①-② -</div>
           </div>
           <div class="loaded-file-actions">
             <button class="btn btn-secondary loaded-file-delete" id="loadedFileDeleteBtn" type="button">削除</button>
@@ -6600,7 +6600,7 @@ function openStampModal(){
       const distM = getScaleReferenceDistanceMeters();
       if (!distM) return '';
       const digits = distM >= 100 ? 1 : 2;
-      return `①-② ${trimTrailingZeros(distM.toFixed(digits))}m`;
+      return `縮尺情報 ①-② ${trimTrailingZeros(distM.toFixed(digits))}m`;
     }
 
     function updateFileUploadDisplay() {
@@ -6610,7 +6610,7 @@ function openStampModal(){
       if (loadedFileCard) loadedFileCard.hidden = !hasFloorplan;
       if (loadedFileName) loadedFileName.textContent = hasFloorplan ? (state.imgName || '読み込み済み図面') : '-';
       if (loadedFileScaleInfo) {
-        loadedFileScaleInfo.textContent = scaleLabel || '①-② -';
+        loadedFileScaleInfo.textContent = scaleLabel || '縮尺情報 ①-② -';
         loadedFileScaleInfo.classList.toggle('show', !!scaleLabel);
       }
       if (loadedScaleToggleBtn) {
