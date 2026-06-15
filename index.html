@@ -17091,18 +17091,11 @@ measureBtn?.addEventListener('click', () => {
       const scale = Math.min(maxLogoW / naturalW, maxLogoH / naturalH);
       const logoW = Math.round(naturalW * scale);
       const logoH = Math.round(naturalH * scale);
-      const paddingX = Math.max(10, Math.round(logoH * 0.16));
-      const paddingY = Math.max(7, Math.round(logoH * 0.12));
-      const boxW = logoW + paddingX * 2;
-      const boxH = logoH + paddingY * 2;
-      const boxX = margin;
-      const boxY = height - margin - boxH;
+      const logoX = margin;
+      const logoY = height - margin - logoH;
 
       targetCtx.save();
-      roundedRectPath(targetCtx, boxX, boxY, boxW, boxH, Math.max(6, Math.round(logoH * 0.2)));
-      targetCtx.fillStyle = 'rgba(15, 23, 42, 0.84)';
-      targetCtx.fill();
-      targetCtx.drawImage(logo.img, boxX + paddingX, boxY + paddingY, logoW, logoH);
+      targetCtx.drawImage(logo.img, logoX, logoY, logoW, logoH);
       targetCtx.restore();
     }
 
