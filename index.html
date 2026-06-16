@@ -5846,6 +5846,7 @@ body.stamp-modal-open header{ pointer-events: none; }
     // Stamp Assets (v25.8)
     // ============================
     const REFLECTIVE_POLE_RANGE_M = 10;
+    const REFLECTIVE_POLE_SCREEN_SIZE_PX = 28;
     const AUTOFORK_DETECTION_RANGE_M = 10;
     const AUTOFORK_DETECTION_REQUIRED_REFLECTIVE_POLES = 3;
     const AUTOFORK_DETECTION_ORIGIN_PX = { x: 1177, y: 491.5, w: 2398, h: 983 };
@@ -7943,6 +7944,19 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
       };
     }
 
+    function getReflectivePoleScreenSizePx() {
+      return REFLECTIVE_POLE_SCREEN_SIZE_PX;
+    }
+
+    function getStampDrawSizePx(stamp, baseSize, z, forReport = false) {
+      if (!baseSize) return null;
+      if (isReflectivePoleStamp(stamp) && !forReport) {
+        const size = getReflectivePoleScreenSizePx();
+        return { w: size, h: size };
+      }
+      return { w: baseSize.w * z, h: baseSize.h * z };
+    }
+
     function isReflectivePoleStampType(type) {
       return String(type || '') === 'reflective_pole';
     }
@@ -8206,13 +8220,13 @@ document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
 
         const baseSize = getStampBaseSizeWorld(s);
         if (!baseSize) continue;
-        const wImg = baseSize.w;
-        const hImg = baseSize.h;
+        const drawSize = getStampDrawSizePx(s, baseSize, z, forReport);
+        if (!drawSize) continue;
 
         const cx = offset.x + s.x * z;
         const cy = offset.y + s.y * z;
-        const w = wImg * z;
-        const h = hImg * z;
+        const w = drawSize.w;
+        const h = drawSize.h;
 
         drawReflectivePoleRange(ctx, s, offset, z);
         drawAutoForkDetectionRange(ctx, s, offset, z, baseSize);
@@ -9293,10 +9307,12 @@ function draw() {
         const def = getStampDef(stamp);
         const baseSize = getStampBaseSizeWorld(stamp);
         if (!def || !baseSize) return;
+        const drawSize = getStampDrawSizePx(stamp, baseSize, z, false);
+        if (!drawSize) return;
         const cx = offset.x + stamp.x * z;
         const cy = offset.y + stamp.y * z;
-        const w = Math.max(18, baseSize.w * z);
-        const h = Math.max(18, baseSize.h * z);
+        const w = Math.max(18, drawSize.w);
+        const h = Math.max(18, drawSize.h);
         const label = def.label || 'スタンプ';
         drawReflectivePoleRange(targetCtx, stamp, offset, z);
         drawAutoForkDetectionRange(targetCtx, stamp, offset, z, baseSize);
@@ -13061,6 +13077,10 @@ function getWorldPoint(e) {
     function getStampHitBoxWorld(stamp) {
       const baseSize = getStampBaseSizeWorld(stamp);
       if (!baseSize) return null;
+      if (isReflectivePoleStamp(stamp)) {
+        const sizeWorld = getReflectivePoleScreenSizePx() / Math.max(0.1, state.zoom || 1);
+        return { w: sizeWorld, h: sizeWorld };
+      }
       const baseW = baseSize.w;
       const baseH = baseSize.h;
       const rot = getStampRotationDeg(stamp);
@@ -16217,6 +16237,11 @@ measureBtn?.addEventListener('click', () => {
     }
 
     // PDF/Inquiry export helpers (capture full report incl. route images)
+    const REPORT_PDF_MAX_BYTES = 5 * 1024 * 1024;
+    const REPORT_PDF_CAPTURE_SCALE = 1.35;
+    const REPORT_PDF_JPEG_QUALITY_STEPS = [0.78, 0.68, 0.58, 0.48, 0.38, 0.3];
+    const REPORT_PDF_DOWNSCALE_STEPS = [1, 0.86, 0.72, 0.6, 0.5];
+
     async function waitForImagesLoaded(rootEl) {
       const imgs = Array.from(rootEl.querySelectorAll('img'));
       const svgImageHrefs = Array.from(rootEl.querySelectorAll('svg image'))
@@ -16277,7 +16302,7 @@ measureBtn?.addEventListener('click', () => {
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
       const canvas = await html2canvas(reportEl, {
-        scale: 2,
+        scale: REPORT_PDF_CAPTURE_SCALE,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -16323,7 +16348,7 @@ measureBtn?.addEventListener('click', () => {
       for (const page of pages) {
         const canvas = await html2canvas(page, {
           backgroundColor: '#fff',
-          scale: 2,
+          scale: REPORT_PDF_CAPTURE_SCALE,
           useCORS: true,
           allowTaint: false,
           logging: false
@@ -16335,17 +16360,66 @@ measureBtn?.addEventListener('click', () => {
       return canvases;
     }
 
-    function addCanvasToPdfSinglePage(pdf, canvas) {
+    function canvasToWhiteJpegDataUrl(canvas, quality) {
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(canvas.width || 1));
+      out.height = Math.max(1, Math.round(canvas.height || 1));
+      const outCtx = out.getContext('2d');
+      outCtx.fillStyle = '#ffffff';
+      outCtx.fillRect(0, 0, out.width, out.height);
+      outCtx.drawImage(canvas, 0, 0, out.width, out.height);
+      return out.toDataURL('image/jpeg', quality);
+    }
+
+    function scaleReportCanvas(canvas, ratio) {
+      if (!canvas || ratio >= 0.999) return canvas;
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(canvas.width * ratio));
+      out.height = Math.max(1, Math.round(canvas.height * ratio));
+      const outCtx = out.getContext('2d');
+      outCtx.fillStyle = '#ffffff';
+      outCtx.fillRect(0, 0, out.width, out.height);
+      outCtx.imageSmoothingEnabled = true;
+      outCtx.imageSmoothingQuality = 'high';
+      outCtx.drawImage(canvas, 0, 0, out.width, out.height);
+      return out;
+    }
+
+    function addCanvasToPdfSinglePage(pdf, canvas, options = {}) {
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
 
-      const imgData = canvas.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 0, 0, pageW, pageH);
+      const quality = Number.isFinite(options.quality) ? options.quality : 0.68;
+      const imgData = canvasToWhiteJpegDataUrl(canvas, quality);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST');
     }
 
     // Alias: older name used in some handlers
     function addCanvasToPdfFitPage(pdf, canvas) {
       return addCanvasToPdfSinglePage(pdf, canvas);
+    }
+
+    function buildReportPdfArrayBuffer(orientation, canvases, quality, scaleRatio) {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF(orientation, 'mm', 'a4');
+      canvases.forEach((canvas, idx) => {
+        if (idx > 0) pdf.addPage('a4', orientation);
+        const pageCanvas = scaleReportCanvas(canvas, scaleRatio);
+        addCanvasToPdfSinglePage(pdf, pageCanvas, { quality });
+      });
+      return pdf.output('arraybuffer');
+    }
+
+    function buildCompressedReportPdfArrayBuffer(orientation, canvases) {
+      let fallback = null;
+      for (const scaleRatio of REPORT_PDF_DOWNSCALE_STEPS) {
+        for (const quality of REPORT_PDF_JPEG_QUALITY_STEPS) {
+          const arrayBuffer = buildReportPdfArrayBuffer(orientation, canvases, quality, scaleRatio);
+          fallback = { arrayBuffer, quality, scaleRatio };
+          if (arrayBuffer.byteLength <= REPORT_PDF_MAX_BYTES) return { ...fallback, withinLimit: true };
+        }
+      }
+      return { ...fallback, withinLimit: false };
     }
 
 
@@ -16368,19 +16442,15 @@ measureBtn?.addEventListener('click', () => {
       showToast('PDF生成中...', 'warning');
       try {
         const orientation = getPdfOrientation();
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF(orientation, 'mm', 'a4');
-
         const canvases = await captureReportPageCanvasesForExport();
-        canvases.forEach((canvas, idx) => {
-          if (idx > 0) pdf.addPage('a4', orientation);
-          addCanvasToPdfSinglePage(pdf, canvas);
-        });
-
-        const arrayBuffer = pdf.output('arraybuffer');
+        const compressed = buildCompressedReportPdfArrayBuffer(orientation, canvases);
+        const arrayBuffer = compressed.arrayBuffer;
         const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
         const saved = await saveBlobWithPicker(blob, fileName, 'PDFレポート', { 'application/pdf': ['.pdf'] });
-        if (saved) showToast('PDF保存完了');
+        if (saved) {
+          const mb = (arrayBuffer.byteLength / (1024 * 1024)).toFixed(2);
+          showToast(compressed.withinLimit ? `PDF保存完了（約${mb}MB）` : `PDF保存完了（約${mb}MB）`);
+        }
       } catch (e) {
         showToast('PDF生成に失敗しました', 'error');
         console.error(e);
@@ -16393,14 +16463,9 @@ measureBtn?.addEventListener('click', () => {
       
       try {
         const orientation = getPdfOrientation();
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF(orientation, 'mm', 'a4');
         const canvases = await captureReportPageCanvasesForExport();
-        canvases.forEach((canvas, idx) => {
-          if (idx > 0) pdf.addPage('a4', orientation);
-          addCanvasToPdfSinglePage(pdf, canvas);
-        });
-        const arrayBuffer = pdf.output('arraybuffer');
+        const compressed = buildCompressedReportPdfArrayBuffer(orientation, canvases);
+        const arrayBuffer = compressed.arrayBuffer;
         const saved = await saveBlobWithPicker(
           new Blob([arrayBuffer], { type: 'application/pdf' }),
           makeReportPdfFileName(),
